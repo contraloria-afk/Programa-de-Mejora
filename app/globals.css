@@ -1,8 +1,9 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-/* Ajustes de colores SCAMPI para el SaaS */
-.status-fi { background-color: #c6f6d5; color: #22543d; border: 1px solid #48bb78; }
-.status-li { background-color: #feebc8; color: #744210; border: 1px solid #ed8936; }
-.status-pi { background-color: #feedd6; color: #9c4221; border: 1px solid #f6ad55; }
-.status-ni { background-color: #fed7d7; color: #742a2a; border: 1px solid #f56565; }
-.status-none { background-color: #f7fafc; color: #a0aec0; border: 1px solid #e2e8f0; }
+body {
+  background-color: #f8fafc;
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
