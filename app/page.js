@@ -101,7 +101,7 @@ export default function Page() {
   }, [activePrograma, unidadesOrganizacionales]);
 
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900">
       <Sidebar activeView={activeView} setActiveView={setActiveView} />
 
       <main className="flex-1 overflow-y-auto">
@@ -187,14 +187,14 @@ function Sidebar({ activeView, setActiveView }) {
   ];
 
   return (
-    <aside className="flex w-64 flex-col border-r border-slate-800 bg-slate-900/60 px-4 py-6">
+    <aside className="flex w-64 flex-col border-r border-slate-200 bg-white px-4 py-6">
       <div className="mb-10 flex items-center gap-3 px-2">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500 font-black text-slate-950">
           A1
         </div>
         <div>
-          <p className="text-sm font-bold tracking-wide text-white">ADVAN ONE</p>
-          <p className="text-[11px] text-slate-400">Appraisal Assistant</p>
+          <p className="text-sm font-bold tracking-wide text-slate-900">ADVAN ONE</p>
+          <p className="text-[11px] text-slate-500">Appraisal Assistant</p>
         </div>
       </div>
 
@@ -209,7 +209,7 @@ function Sidebar({ activeView, setActiveView }) {
               className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
                 active
                   ? "bg-orange-500 text-slate-950 shadow-lg shadow-orange-500/20"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
               }`}
             >
               <Icon className="h-4 w-4" />
@@ -219,7 +219,7 @@ function Sidebar({ activeView, setActiveView }) {
         })}
       </nav>
 
-      <div className="rounded-2xl bg-slate-800/60 px-4 py-4 text-xs text-slate-400">
+      <div className="rounded-2xl bg-slate-100 px-4 py-4 text-xs text-slate-500">
         Modelo de referencia SCAMPI · v1.0
       </div>
     </aside>
@@ -228,15 +228,15 @@ function Sidebar({ activeView, setActiveView }) {
 
 function TopBar({ loading, onRefresh }) {
   return (
-    <header className="flex items-center justify-between border-b border-slate-800 bg-slate-900/40 px-8 py-5">
+    <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-8 py-5">
       <div>
-        <h1 className="text-lg font-semibold text-white">Panel de Auditoría ERP</h1>
-        <p className="text-xs text-slate-400">Evaluación de adopción y madurez de procesos</p>
+        <h1 className="text-lg font-semibold text-slate-900">Panel de Auditoría ERP</h1>
+        <p className="text-xs text-slate-500">Evaluación de adopción y madurez de procesos</p>
       </div>
       <button
         onClick={onRefresh}
         disabled={loading}
-        className="rounded-xl border border-slate-700 px-4 py-2 text-xs font-medium text-slate-300 transition hover:border-orange-500 hover:text-orange-400 disabled:opacity-50"
+        className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 transition hover:border-orange-500 hover:text-orange-400 disabled:opacity-50"
       >
         {loading ? "Sincronizando…" : "Refrescar datos"}
       </button>
@@ -267,24 +267,24 @@ function Dashboard({ programas, modulos, evaluaciones, criterios, clientes }) {
         {kpis.map((k) => (
           <div
             key={k.label}
-            className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-xl shadow-black/20"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20"
           >
-            <p className="text-xs uppercase tracking-wider text-slate-400">{k.label}</p>
+            <p className="text-xs uppercase tracking-wider text-slate-500">{k.label}</p>
             <p className={`mt-3 text-4xl font-bold ${k.accent}`}>{k.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-        <h2 className="mb-4 text-sm font-semibold text-slate-200">Distribución de Dictámenes SCAMPI</h2>
+      <div className="rounded-3xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-4 text-sm font-semibold text-slate-800">Distribución de Dictámenes SCAMPI</h2>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           {dictamenCounts.map((d) => (
-            <div key={d.code} className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+            <div key={d.code} className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
               <div className="flex items-center gap-2">
                 <span className={`h-2.5 w-2.5 rounded-full ${d.color}`} />
-                <span className="text-xs font-semibold text-slate-300">{d.code}</span>
+                <span className="text-xs font-semibold text-slate-700">{d.code}</span>
               </div>
-              <p className="mt-2 text-2xl font-bold text-white">{d.count}</p>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{d.count}</p>
               <p className="mt-1 text-[11px] text-slate-500">{d.label}</p>
             </div>
           ))}
@@ -359,18 +359,18 @@ function ProgramasView({
     <div className="space-y-6">
       <form
         onSubmit={handleCreate}
-        className="grid gap-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:grid-cols-[2fr_2fr_auto]"
+        className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-6 sm:grid-cols-[2fr_2fr_auto]"
       >
         <input
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre del programa"
-          className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
         />
         <select
           value={clienteId}
           onChange={(e) => setClienteId(e.target.value)}
-          className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
+          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
         >
           <option value="">Empresa / Cliente</option>
           {clientes.map((c) => (
@@ -388,9 +388,9 @@ function ProgramasView({
         </button>
       </form>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-800">
+      <div className="overflow-hidden rounded-3xl border border-slate-200">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-900 text-xs uppercase tracking-wider text-slate-400">
+          <thead className="bg-white text-xs uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-6 py-4">Programa</th>
               <th className="px-6 py-4">Cliente</th>
@@ -398,15 +398,15 @@ function ProgramasView({
               <th className="px-6 py-4 text-right">Acción</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800 bg-slate-900/40">
+          <tbody className="divide-y divide-slate-200 bg-slate-50">
             {programas.map((p) => {
               const cliente = clientes.find((c) => c.id === p.cliente_id);
               return (
-                <tr key={p.id} className="transition hover:bg-slate-800/40">
-                  <td className="px-6 py-4 font-medium text-white">{p.nombre}</td>
-                  <td className="px-6 py-4 text-slate-300">{cliente?.nombre || "—"}</td>
+                <tr key={p.id} className="transition hover:bg-slate-100/40">
+                  <td className="px-6 py-4 font-medium text-slate-900">{p.nombre}</td>
+                  <td className="px-6 py-4 text-slate-700">{cliente?.nombre || "—"}</td>
                   <td className="px-6 py-4">
-                    <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-300">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
                       {p.estatus || "Planificado"}
                     </span>
                   </td>
@@ -464,16 +464,16 @@ function MatrizScampi({
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <button onClick={onBack} className="mb-2 text-xs text-slate-400 hover:text-orange-400">
+          <button onClick={onBack} className="mb-2 text-xs text-slate-500 hover:text-orange-400">
             ← Volver a Programas
           </button>
-          <h2 className="text-lg font-semibold text-white">Matriz SCAMPI — {programa.nombre}</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Matriz SCAMPI — {programa.nombre}</h2>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-slate-800">
+      <div className="overflow-hidden rounded-3xl border border-slate-200">
         <table className="w-full text-left text-sm">
-          <thead className="bg-slate-900 text-xs uppercase tracking-wider text-slate-400">
+          <thead className="bg-white text-xs uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-5 py-3">Criterio</th>
               <th className="px-5 py-3">Módulo / Categoría</th>
@@ -485,14 +485,14 @@ function MatrizScampi({
               <th className="px-5 py-3 text-right">Acción</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800 bg-slate-900/40">
+          <tbody className="divide-y divide-slate-200 bg-slate-50">
             {rows.map(({ criterio, modulo, categoria, porOu }) => (
-              <tr key={criterio.id} className="hover:bg-slate-800/30">
+              <tr key={criterio.id} className="hover:bg-slate-100/30">
                 <td className="px-5 py-3">
-                  <p className="font-medium text-white">{criterio.nombre}</p>
+                  <p className="font-medium text-slate-900">{criterio.nombre}</p>
                   <p className="text-xs text-slate-500">{criterio.codigo}</p>
                 </td>
-                <td className="px-5 py-3 text-xs text-slate-400">
+                <td className="px-5 py-3 text-xs text-slate-500">
                   {modulo?.nombre || "—"} <span className="text-slate-600">/</span> {categoria?.nombre || "—"}
                 </td>
                 {ous.map((ou) => {
@@ -507,7 +507,7 @@ function MatrizScampi({
                           {meta.code}
                         </span>
                       ) : (
-                        <span className="rounded-full bg-slate-800 px-3 py-1 text-xs text-slate-500">
+                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">
                           Pendiente
                         </span>
                       )}
@@ -517,7 +517,7 @@ function MatrizScampi({
                 <td className="px-5 py-3 text-right">
                   <button
                     onClick={() => setModalCriterio(criterio)}
-                    className="rounded-xl border border-slate-700 px-4 py-1.5 text-xs font-medium text-slate-300 transition hover:border-orange-500 hover:text-orange-400"
+                    className="rounded-xl border border-slate-300 px-4 py-1.5 text-xs font-medium text-slate-700 transition hover:border-orange-500 hover:text-orange-400"
                   >
                     Auditar
                   </button>
@@ -626,20 +626,20 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900 p-7 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50/70 px-4 backdrop-blur-sm">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
         <div className="mb-6 flex items-start justify-between">
           <div>
             <p className="text-xs uppercase tracking-wider text-orange-400">{criterio.codigo}</p>
-            <h3 className="text-lg font-semibold text-white">{criterio.nombre}</h3>
+            <h3 className="text-lg font-semibold text-slate-900">{criterio.nombre}</h3>
           </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white">
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
             ✕
           </button>
         </div>
 
         <div className="mb-6">
-          <label className="mb-2 block text-xs font-medium text-slate-400">Unidad Organizacional</label>
+          <label className="mb-2 block text-xs font-medium text-slate-500">Unidad Organizacional</label>
           <div className="flex gap-2">
             {ous.map((o) => (
               <button
@@ -648,7 +648,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
                 className={`rounded-xl px-4 py-2 text-xs font-semibold transition ${
                   ou === o
                     ? "bg-orange-500 text-slate-950"
-                    : "border border-slate-700 text-slate-300 hover:border-orange-500"
+                    : "border border-slate-300 text-slate-700 hover:border-orange-500"
                 }`}
               >
                 {o.replace(/_/g, " ")}
@@ -659,36 +659,36 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
 
         <div className="space-y-4">
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-400">Evidencia Directa</label>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Evidencia Directa</label>
             <textarea
               value={evidenciaDirecta}
               onChange={(e) => setEvidenciaDirecta(e.target.value)}
               placeholder="Rutas a documentos, políticas o manuales del ERP"
               rows={2}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-400">Evidencia Indirecta</label>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Evidencia Indirecta</label>
             <textarea
               value={evidenciaIndirecta}
               onChange={(e) => setEvidenciaIndirecta(e.target.value)}
               placeholder="Capturas de pantalla, queries o logs de auditoría"
               rows={2}
-              className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-400">Afirmaciones (Entrevistas)</label>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Afirmaciones (Entrevistas)</label>
             <div className="mb-2 flex gap-2">
               <input
                 value={nuevaAfirmacion}
                 onChange={(e) => setNuevaAfirmacion(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && addAfirmacion()}
                 placeholder="Nueva nota de entrevista"
-                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+                className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
               />
               <button
                 onClick={addAfirmacion}
@@ -701,7 +701,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
               {afirmaciones.map((a, idx) => (
                 <li
                   key={idx}
-                  className="flex items-center justify-between rounded-xl bg-slate-800/60 px-4 py-2 text-xs text-slate-300"
+                  className="flex items-center justify-between rounded-xl bg-slate-100 px-4 py-2 text-xs text-slate-700"
                 >
                   {a}
                   <button onClick={() => removeAfirmacion(idx)} className="text-slate-500 hover:text-rose-400">
@@ -713,7 +713,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-400">Dictamen SCAMPI</label>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Dictamen SCAMPI</label>
             <div className="grid grid-cols-4 gap-2">
               {SCAMPI_LEVELS.map((lvl) => (
                 <button
@@ -722,7 +722,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
                   className={`rounded-xl px-3 py-2.5 text-xs font-bold transition ${
                     statusScampi === lvl.code
                       ? `${lvl.color} text-slate-950 ring-2 ${lvl.ring}`
-                      : "border border-slate-700 text-slate-400 hover:border-orange-500"
+                      : "border border-slate-300 text-slate-500 hover:border-orange-500"
                   }`}
                 >
                   {lvl.code}
@@ -737,7 +737,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
           <div className="flex flex-1 justify-end gap-3">
             <button
               onClick={onClose}
-              className="rounded-xl border border-slate-700 px-5 py-2.5 text-sm text-slate-300 hover:border-slate-500"
+              className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:border-slate-500"
             >
               Cerrar
             </button>
@@ -790,7 +790,7 @@ function ConfiguracionView({
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-semibold transition ${
-              tab === t.id ? "bg-orange-500 text-slate-950" : "border border-slate-700 text-slate-300"
+              tab === t.id ? "bg-orange-500 text-slate-950" : "border border-slate-300 text-slate-700"
             }`}
           >
             {t.label}
@@ -867,12 +867,12 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-      <form onSubmit={handleCreateModulo} className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-        <h3 className="text-sm font-semibold text-white">Nuevo Módulo + Primer Criterio</h3>
+      <form onSubmit={handleCreateModulo} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
+        <h3 className="text-sm font-semibold text-slate-900">Nuevo Módulo + Primer Criterio</h3>
         <select
           value={categoriaId}
           onChange={(e) => setCategoriaId(e.target.value)}
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
+          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
         >
           <option value="">Categoría (Área de capacidad)</option>
           {categorias.map((c) => (
@@ -885,20 +885,20 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
           value={moduloNombre}
           onChange={(e) => setModuloNombre(e.target.value)}
           placeholder="Nombre del módulo ERP"
-          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
         />
         <div className="grid grid-cols-[1fr_2fr] gap-2">
           <input
             value={criterioCodigo}
             onChange={(e) => setCriterioCodigo(e.target.value)}
             placeholder="Código"
-            className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
           />
           <input
             value={criterioNombre}
             onChange={(e) => setCriterioNombre(e.target.value)}
             placeholder="Primer criterio (práctica CMMI)"
-            className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
           />
         </div>
         <button
@@ -910,8 +910,8 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
         </button>
       </form>
 
-      <div className="max-h-[28rem] overflow-y-auto rounded-3xl border border-slate-800 bg-slate-900/40 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-white">Árbol del Modelo de Referencia</h3>
+      <div className="max-h-[28rem] overflow-y-auto rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <h3 className="mb-3 text-sm font-semibold text-slate-900">Árbol del Modelo de Referencia</h3>
         {categorias.map((cat) => (
           <div key={cat.id} className="mb-3">
             <p className="text-xs font-bold uppercase text-orange-400">{cat.nombre}</p>
@@ -919,7 +919,7 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
               .filter((m) => m.categoria_id === cat.id)
               .map((mod) => (
                 <div key={mod.id} className="ml-3 mt-1.5">
-                  <p className="text-xs font-semibold text-slate-200">↳ {mod.nombre}</p>
+                  <p className="text-xs font-semibold text-slate-800">↳ {mod.nombre}</p>
                   {criterios
                     .filter((c) => c.modulo_id === mod.id)
                     .map((c) => (
@@ -968,14 +968,14 @@ function ClientesOuPanel({ clientes, unidadesOrganizacionales, setClientes, setU
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <div className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-        <h3 className="text-sm font-semibold text-white">Catálogo de Clientes</h3>
+      <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
+        <h3 className="text-sm font-semibold text-slate-900">Catálogo de Clientes</h3>
         <form onSubmit={handleCreateCliente} className="flex gap-2">
           <input
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Empresa dueña del ERP"
-            className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
           />
           <button
             disabled={saving}
@@ -986,20 +986,20 @@ function ClientesOuPanel({ clientes, unidadesOrganizacionales, setClientes, setU
         </form>
         <ul className="space-y-1.5">
           {clientes.map((c) => (
-            <li key={c.id} className="rounded-xl bg-slate-800/50 px-4 py-2 text-sm text-slate-200">
+            <li key={c.id} className="rounded-xl bg-slate-100 px-4 py-2 text-sm text-slate-800">
               {c.nombre}
             </li>
           ))}
         </ul>
       </div>
 
-      <div className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-        <h3 className="text-sm font-semibold text-white">Unidades Organizacionales por Cliente</h3>
+      <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
+        <h3 className="text-sm font-semibold text-slate-900">Unidades Organizacionales por Cliente</h3>
         <form onSubmit={handleCreateOu} className="space-y-2">
           <select
             value={clienteOuId}
             onChange={(e) => setClienteOuId(e.target.value)}
-            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
           >
             <option value="">Selecciona cliente</option>
             {clientes.map((c) => (
@@ -1013,7 +1013,7 @@ function ClientesOuPanel({ clientes, unidadesOrganizacionales, setClientes, setU
               value={ouNombre}
               onChange={(e) => setOuNombre(e.target.value)}
               placeholder="Ej: Matriz_Norte"
-              className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+              className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
             />
             <button className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400">
               +
@@ -1024,8 +1024,8 @@ function ClientesOuPanel({ clientes, unidadesOrganizacionales, setClientes, setU
           {unidadesOrganizacionales.map((ou) => {
             const cliente = clientes.find((c) => c.id === ou.cliente_id);
             return (
-              <li key={ou.id} className="rounded-xl bg-slate-800/50 px-4 py-2 text-xs text-slate-300">
-                <span className="font-semibold text-slate-100">{ou.nombre}</span> — {cliente?.nombre || "—"}
+              <li key={ou.id} className="rounded-xl bg-slate-100 px-4 py-2 text-xs text-slate-700">
+                <span className="font-semibold text-slate-900">{ou.nombre}</span> — {cliente?.nombre || "—"}
               </li>
             );
           })}
@@ -1053,11 +1053,11 @@ function UsuariosPanel({ usuarios, setUsuarios }) {
   };
 
   return (
-    <div className="space-y-4 rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-      <h3 className="text-sm font-semibold text-white">Catálogo de Usuarios</h3>
+    <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
+      <h3 className="text-sm font-semibold text-slate-900">Catálogo de Usuarios</h3>
       <p className="text-xs text-slate-500">
-        El rol <strong className="text-slate-300">Auditor Líder</strong> es el único habilitado para fijar el
-        dictamen final. <strong className="text-slate-300">Consultor Capturista</strong> únicamente registra
+        El rol <strong className="text-slate-700">Auditor Líder</strong> es el único habilitado para fijar el
+        dictamen final. <strong className="text-slate-700">Consultor Capturista</strong> únicamente registra
         evidencia.
       </p>
       <form onSubmit={handleCreate} className="grid gap-2 sm:grid-cols-[2fr_2fr_auto]">
@@ -1065,12 +1065,12 @@ function UsuariosPanel({ usuarios, setUsuarios }) {
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
           placeholder="Nombre del usuario"
-          className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
         />
         <select
           value={rol}
           onChange={(e) => setRol(e.target.value)}
-          className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2.5 text-sm text-white focus:border-orange-500 focus:outline-none"
+          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
         >
           {ROLES.map((r) => (
             <option key={r} value={r}>
@@ -1089,10 +1089,10 @@ function UsuariosPanel({ usuarios, setUsuarios }) {
         {usuarios.map((u) => (
           <li
             key={u.id}
-            className="flex items-center justify-between rounded-xl bg-slate-800/50 px-4 py-2 text-sm text-slate-200"
+            className="flex items-center justify-between rounded-xl bg-slate-100 px-4 py-2 text-sm text-slate-800"
           >
             {u.nombre}
-            <span className="rounded-full bg-slate-700 px-3 py-1 text-[11px] text-slate-300">{u.rol}</span>
+            <span className="rounded-full bg-slate-700 px-3 py-1 text-[11px] text-slate-700">{u.rol}</span>
           </li>
         ))}
       </ul>
@@ -1102,18 +1102,18 @@ function UsuariosPanel({ usuarios, setUsuarios }) {
 
 function EscalasPanel() {
   return (
-    <div className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6">
-      <h3 className="mb-1 text-sm font-semibold text-white">Escalas de Dictamen SCAMPI</h3>
+    <div className="rounded-3xl border border-slate-200 bg-white p-6">
+      <h3 className="mb-1 text-sm font-semibold text-slate-900">Escalas de Dictamen SCAMPI</h3>
       <p className="mb-5 text-xs text-slate-500">
         Referencia oficial de los 4 niveles utilizados en el modal de auditoría.
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         {SCAMPI_LEVELS.map((lvl) => (
-          <div key={lvl.code} className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+          <div key={lvl.code} className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
             <span className={`mt-0.5 h-3 w-3 rounded-full ${lvl.color}`} />
             <div>
-              <p className="text-sm font-bold text-white">{lvl.code}</p>
-              <p className="text-xs text-slate-400">{lvl.label}</p>
+              <p className="text-sm font-bold text-slate-900">{lvl.code}</p>
+              <p className="text-xs text-slate-500">{lvl.label}</p>
             </div>
           </div>
         ))}
