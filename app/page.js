@@ -785,6 +785,18 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
     return { strength, weakness, total: evidencias.length };
   }, [evidencias]);
 
+  // Sugerencia de Roll-Up: réplica simplificada del juicio de equipo del manual
+  // (Team judgment basado en si las debilidades tienen impacto negativo significativo)
+  const sugerenciaRollUp = useMemo(() => {
+    if (conteo.total === 0) return null;
+    if (conteo.weakness === 0 && conteo.strength > 0) return "FI";
+    if (conteo.weakness > 0 && conteo.strength === 0) return "NI";
+    if (conteo.weakness > 0 && conteo.strength > 0) {
+      return conteo.weakness >= conteo.strength ? "PI" : "LI";
+    }
+    return null;
+  }, [conteo]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
       <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
@@ -1003,9 +1015,25 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-slate-500">
-                Dictamen SCAMPI (Roll-up a nivel OU)
-              </label>
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="block text-xs font-medium text-slate-500">
+                  Dictamen SCAMPI (Roll-up a nivel OU)
+                </label>
+                <button
+                  onClick={() => setStatusScampi(sugerenciaRollUp)}
+                  disabled={!sugerenciaRollUp}
+                  className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40"
+                  title="Sugerencia basada en el conjunto de evidencias capturadas"
+                >
+                  ⟲ Sugerir Roll-Up
+                </button>
+              </div>
+              {sugerenciaRollUp && statusScampi !== sugerenciaRollUp && (
+                <p className="mb-2 text-[11px] text-amber-600">
+                  Sugerencia automática: <strong>{sugerenciaRollUp}</strong> ({conteo.strength} fortalezas,{" "}
+                  {conteo.weakness} debilidades). El juicio final queda a discreción del auditor líder.
+                </p>
+              )}
               <div className="grid grid-cols-2 gap-2">
                 {SCAMPI_LEVELS.map((lvl) => (
                   <button
@@ -1365,6 +1393,13 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
   const [criterioCodigo, setCriterioCodigo] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const [moduloExistenteId, setModuloExistenteId] = useState("");
+  const [critCodigo2, setCritCodigo2] = useState("");
+  const [critNombre2, setCritNombre2] = useState("");
+  const [critEvidencia2, setCritEvidencia2] = useState("");
+  const [critAfirmacion2, setCritAfirmacion2] = useState("");
+  const [saving2, setSaving2] = useState(false);
+
   const handleCreateModulo = async (e) => {
     e.preventDefault();
     if (!moduloNombre.trim() || !categoriaId) return;
@@ -1398,52 +1433,142 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
     setCriterioCodigo("");
   };
 
+  const handleAddCriterioExistente = async (e) => {
+    e.preventDefault();
+    if (!moduloExistenteId || !critNombre2.trim()) return;
+    setSaving2(true);
+
+    const { data, error } = await supabase
+      .from("criterios")
+      .insert([
+        {
+          nombre: critNombre2,
+          codigo: critCodigo2 || null,
+          modulo_id: moduloExistenteId,
+          evidencia_sugerida: critEvidencia2 || null,
+          afirmacion_guia: critAfirmacion2 || null,
+        },
+      ])
+      .select();
+
+    setSaving2(false);
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setCriterios((prev) => [...prev, data[0]]);
+    setCritCodigo2("");
+    setCritNombre2("");
+    setCritEvidencia2("");
+    setCritAfirmacion2("");
+  };
+
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-      <form onSubmit={handleCreateModulo} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
-        <h3 className="text-sm font-semibold text-slate-900">Nuevo Módulo + Primer Criterio</h3>
-        <select
-          value={categoriaId}
-          onChange={(e) => setCategoriaId(e.target.value)}
-          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
-        >
-          <option value="">Categoría (Área de capacidad)</option>
-          {categorias.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nombre}
-            </option>
-          ))}
-        </select>
-        <input
-          value={moduloNombre}
-          onChange={(e) => setModuloNombre(e.target.value)}
-          placeholder="Nombre del módulo ERP"
-          className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-        />
-        <div className="grid grid-cols-[1fr_2fr] gap-2">
+      <div className="space-y-6">
+        <form onSubmit={handleCreateModulo} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
+          <h3 className="text-sm font-semibold text-slate-900">Nuevo Módulo + Primer Criterio</h3>
+          <select
+            value={categoriaId}
+            onChange={(e) => setCategoriaId(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+          >
+            <option value="">Categoría (Área de capacidad)</option>
+            {categorias.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
           <input
-            value={criterioCodigo}
-            onChange={(e) => setCriterioCodigo(e.target.value)}
-            placeholder="Código"
-            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            value={moduloNombre}
+            onChange={(e) => setModuloNombre(e.target.value)}
+            placeholder="Nombre del módulo ERP"
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
           />
-          <input
-            value={criterioNombre}
-            onChange={(e) => setCriterioNombre(e.target.value)}
-            placeholder="Primer criterio (práctica CMMI)"
-            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-          />
-        </div>
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
-        >
-          {saving ? "Guardando…" : "Añadir al Catálogo"}
-        </button>
-      </form>
+          <div className="grid grid-cols-[1fr_2fr] gap-2">
+            <input
+              value={criterioCodigo}
+              onChange={(e) => setCriterioCodigo(e.target.value)}
+              placeholder="Código"
+              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            />
+            <input
+              value={criterioNombre}
+              onChange={(e) => setCriterioNombre(e.target.value)}
+              placeholder="Primer criterio (práctica CMMI)"
+              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={saving}
+            className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
+          >
+            {saving ? "Guardando…" : "Crear Módulo Nuevo"}
+          </button>
+        </form>
 
-      <div className="max-h-[28rem] overflow-y-auto rounded-3xl border border-slate-200 bg-slate-50 p-4">
+        <form onSubmit={handleAddCriterioExistente} className="space-y-3 rounded-3xl border border-orange-200 bg-orange-50/40 p-6">
+          <h3 className="text-sm font-semibold text-slate-900">Agregar Criterio a Módulo Existente</h3>
+          <select
+            value={moduloExistenteId}
+            onChange={(e) => setModuloExistenteId(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+          >
+            <option value="">Selecciona un módulo</option>
+            {categorias.map((cat) => (
+              <optgroup key={cat.id} label={cat.nombre}>
+                {modulos
+                  .filter((m) => m.categoria_id === cat.id)
+                  .map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nombre}
+                    </option>
+                  ))}
+              </optgroup>
+            ))}
+          </select>
+          <div className="grid grid-cols-[1fr_2fr] gap-2">
+            <input
+              value={critCodigo2}
+              onChange={(e) => setCritCodigo2(e.target.value)}
+              placeholder="Código"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            />
+            <input
+              value={critNombre2}
+              onChange={(e) => setCritNombre2(e.target.value)}
+              placeholder="Nombre del criterio"
+              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            />
+          </div>
+          <textarea
+            value={critEvidencia2}
+            onChange={(e) => setCritEvidencia2(e.target.value)}
+            placeholder="Evidencia sugerida (qué debería buscar el auditor)"
+            rows={2}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+          />
+          <textarea
+            value={critAfirmacion2}
+            onChange={(e) => setCritAfirmacion2(e.target.value)}
+            placeholder="Pregunta guía para entrevista"
+            rows={2}
+            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+          />
+          <button
+            type="submit"
+            disabled={saving2}
+            className="w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+          >
+            {saving2 ? "Guardando…" : "+ Agregar Criterio"}
+          </button>
+        </form>
+      </div>
+
+      <div className="max-h-[40rem] overflow-y-auto rounded-3xl border border-slate-200 bg-slate-50 p-4">
         <h3 className="mb-3 text-sm font-semibold text-slate-900">Árbol del Modelo de Referencia</h3>
         {categorias.map((cat) => (
           <div key={cat.id} className="mb-3">
@@ -1452,7 +1577,12 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
               .filter((m) => m.categoria_id === cat.id)
               .map((mod) => (
                 <div key={mod.id} className="ml-3 mt-1.5">
-                  <p className="text-xs font-semibold text-slate-800">↳ {mod.nombre}</p>
+                  <p className="text-xs font-semibold text-slate-800">
+                    ↳ {mod.nombre}{" "}
+                    <span className="font-normal text-slate-400">
+                      ({criterios.filter((c) => c.modulo_id === mod.id).length} criterios)
+                    </span>
+                  </p>
                   {criterios
                     .filter((c) => c.modulo_id === mod.id)
                     .map((c) => (
