@@ -150,12 +150,20 @@ export default function Page() {
               evaluaciones={evaluaciones}
               criterios={criterios}
               clientes={clientes}
+              usuarios={usuarios}
+              evidencias={evidencias}
+              unidadesOrganizacionales={unidadesOrganizacionales}
+              tipoUsuario={tipoUsuarioDemo}
             />
           )}
 
           {activeView === "programas" && (
             <ProgramasView
-              programas={programas}
+              programas={
+                tipoUsuarioDemo === "Cliente" && usuarios.find((u) => u.id === usuarioActivoId)?.cliente_id
+                  ? programas.filter((p) => p.cliente_id === usuarios.find((u) => u.id === usuarioActivoId).cliente_id)
+                  : programas
+              }
               clientes={clientes}
               setProgramas={setProgramas}
               activePrograma={activePrograma}
@@ -169,6 +177,7 @@ export default function Page() {
               ous={ousForActivePrograma}
               modalCriterio={modalCriterio}
               setModalCriterio={setModalCriterio}
+              readOnly={tipoUsuarioDemo === "Cliente"}
             />
           )}
 
@@ -338,12 +347,28 @@ function TopBar({ loading, onRefresh, usuarios, usuarioActivoId, setUsuarioActiv
    A. DASHBOARD
    ────────────────────────────────────────────────────────────────────────── */
 
-function Dashboard({ programas, modulos, evaluaciones, criterios, clientes }) {
+function Dashboard({
+  programas,
+  modulos,
+  evaluaciones,
+  criterios,
+  clientes,
+  usuarios,
+  evidencias,
+  unidadesOrganizacionales,
+  tipoUsuario,
+}) {
+  const [subTab, setSubTab] = useState("general");
+
+  const programasEjecutados = programas.filter((p) => p.estatus !== "Planificado").length;
+  const usuariosActivos = usuarios.length;
+  const misAsignaciones = evaluaciones.filter((e) => e.status_instanciacion && e.status_instanciacion !== "Not Yet Reviewed").length;
+
   const kpis = [
-    { label: "Auditorías (Programas)", value: programas.length, accent: "text-orange-400" },
-    { label: "Módulos en Catálogo", value: modulos.length, accent: "text-sky-400" },
-    { label: "Evaluaciones Cloud", value: evaluaciones.length, accent: "text-emerald-400" },
-    { label: "Clientes Registrados", value: clientes.length, accent: "text-purple-400" },
+    { label: "Programas de Mejora Ejecutados", value: programasEjecutados, accent: "text-orange-400" },
+    { label: "Mis Asignaciones", value: misAsignaciones, accent: "text-sky-400" },
+    { label: "Usuarios Activos", value: usuariosActivos, accent: "text-emerald-400" },
+    { label: "Clientes", value: clientes.length, accent: "text-purple-400" },
   ];
 
   const dictamenCounts = SCAMPI_LEVELS.map((lvl) => ({
@@ -351,39 +376,189 @@ function Dashboard({ programas, modulos, evaluaciones, criterios, clientes }) {
     count: evaluaciones.filter((e) => e.status_scampi === lvl.code).length,
   }));
 
+  const subTabs = [
+    { id: "general", label: "General" },
+    { id: "clientes", label: "Dashboard de Clientes" },
+    { id: "programas-cliente", label: "Programas por Cliente" },
+    { id: "usabilidad", label: "Usabilidad del Sistema" },
+  ];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
         {kpis.map((k) => (
-          <div
-            key={k.label}
-            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20"
-          >
+          <div key={k.label} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20">
             <p className="text-xs uppercase tracking-wider text-slate-500">{k.label}</p>
             <p className={`mt-3 text-4xl font-bold ${k.accent}`}>{k.value}</p>
           </div>
         ))}
       </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-6">
-        <h2 className="mb-4 text-sm font-semibold text-slate-800">Distribución de Dictámenes SCAMPI</h2>
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-          {dictamenCounts.map((d) => (
-            <div key={d.code} className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
-              <div className="flex items-center gap-2">
-                <span className={`h-2.5 w-2.5 rounded-full ${d.color}`} />
-                <span className="text-xs font-semibold text-slate-700">{d.code}</span>
-              </div>
-              <p className="mt-2 text-2xl font-bold text-slate-900">{d.count}</p>
-              <p className="mt-1 text-[11px] text-slate-500">{d.label}</p>
-            </div>
+      {tipoUsuario === "Administrador" && (
+        <div className="flex gap-2 overflow-x-auto">
+          {subTabs.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setSubTab(t.id)}
+              className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-semibold transition ${
+                subTab === t.id ? "bg-orange-500 text-slate-950" : "border border-slate-300 text-slate-600"
+              }`}
+            >
+              {t.label}
+            </button>
           ))}
         </div>
-      </div>
+      )}
 
-      <p className="text-xs text-slate-500">
-        Total de criterios activos en el modelo de referencia: {criterios.length}
-      </p>
+      {subTab === "general" && (
+        <>
+          <div className="rounded-3xl border border-slate-200 bg-white p-6">
+            <h2 className="mb-4 text-sm font-semibold text-slate-800">Distribución de Dictámenes SCAMPI</h2>
+            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+              {dictamenCounts.map((d) => (
+                <div key={d.code} className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2.5 w-2.5 rounded-full ${d.color}`} />
+                    <span className="text-xs font-semibold text-slate-700">{d.code}</span>
+                  </div>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">{d.count}</p>
+                  <p className="mt-1 text-[11px] text-slate-500">{d.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">
+            Total de criterios activos en el modelo de referencia: {criterios.length}
+          </p>
+        </>
+      )}
+
+      {subTab === "clientes" && tipoUsuario === "Administrador" && (
+        <DashboardClientes clientes={clientes} programas={programas} unidadesOrganizacionales={unidadesOrganizacionales} />
+      )}
+
+      {subTab === "programas-cliente" && tipoUsuario === "Administrador" && (
+        <DashboardProgramasPorCliente clientes={clientes} programas={programas} evaluaciones={evaluaciones} />
+      )}
+
+      {subTab === "usabilidad" && tipoUsuario === "Administrador" && (
+        <DashboardUsabilidad
+          criterios={criterios}
+          evaluaciones={evaluaciones}
+          evidencias={evidencias}
+          usuarios={usuarios}
+        />
+      )}
+    </div>
+  );
+}
+
+function DashboardClientes({ clientes, programas, unidadesOrganizacionales }) {
+  return (
+    <div className="overflow-hidden rounded-3xl border border-slate-200">
+      <table className="w-full text-left text-sm">
+        <thead className="bg-white text-xs uppercase tracking-wider text-slate-500">
+          <tr>
+            <th className="px-5 py-3">Cliente</th>
+            <th className="px-5 py-3">Programas de Mejora</th>
+            <th className="px-5 py-3">Unidades Organizacionales</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-200 bg-slate-50">
+          {clientes.map((c) => (
+            <tr key={c.id}>
+              <td className="px-5 py-3 font-medium text-slate-900">{c.nombre}</td>
+              <td className="px-5 py-3 text-slate-600">
+                {programas.filter((p) => p.cliente_id === c.id).length}
+              </td>
+              <td className="px-5 py-3 text-slate-600">
+                {unidadesOrganizacionales.filter((ou) => ou.cliente_id === c.id).length}
+              </td>
+            </tr>
+          ))}
+          {clientes.length === 0 && (
+            <tr>
+              <td colSpan={3} className="px-6 py-10 text-center text-slate-400">
+                Sin clientes registrados.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function DashboardProgramasPorCliente({ clientes, programas, evaluaciones }) {
+  const [clienteId, setClienteId] = useState(clientes[0]?.id || "");
+  const programasCliente = programas.filter((p) => p.cliente_id === clienteId);
+
+  return (
+    <div className="space-y-4">
+      <select
+        value={clienteId}
+        onChange={(e) => setClienteId(e.target.value)}
+        className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+      >
+        {clientes.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.nombre}
+          </option>
+        ))}
+      </select>
+      <div className="overflow-hidden rounded-3xl border border-slate-200">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-white text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="px-5 py-3">Programa</th>
+              <th className="px-5 py-3">Estatus</th>
+              <th className="px-5 py-3">Evaluaciones Capturadas</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 bg-slate-50">
+            {programasCliente.map((p) => (
+              <tr key={p.id}>
+                <td className="px-5 py-3 font-medium text-slate-900">{p.nombre}</td>
+                <td className="px-5 py-3 text-slate-600">{p.estatus || "Planificado"}</td>
+                <td className="px-5 py-3 text-slate-600">
+                  {evaluaciones.filter((e) => e.programa_id === p.id).length}
+                </td>
+              </tr>
+            ))}
+            {programasCliente.length === 0 && (
+              <tr>
+                <td colSpan={3} className="px-6 py-10 text-center text-slate-400">
+                  Este cliente no tiene programas de mejora todavía.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DashboardUsabilidad({ criterios, evaluaciones, evidencias, usuarios }) {
+  const totalCriterios = criterios.length;
+  const criteriosEvaluados = new Set(evaluaciones.map((e) => e.criterio_id)).size;
+  const coberturaPct = totalCriterios > 0 ? Math.round((criteriosEvaluados / totalCriterios) * 100) : 0;
+
+  const stats = [
+    { label: "Cobertura del Modelo", value: `${coberturaPct}%`, accent: "text-orange-400" },
+    { label: "Criterios Evaluados", value: `${criteriosEvaluados} / ${totalCriterios}`, accent: "text-sky-400" },
+    { label: "Evidencias Capturadas", value: evidencias.length, accent: "text-emerald-400" },
+    { label: "Usuarios Registrados", value: usuarios.length, accent: "text-purple-400" },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {stats.map((s) => (
+        <div key={s.label} className="rounded-3xl border border-slate-200 bg-white p-6">
+          <p className="text-xs uppercase tracking-wider text-slate-500">{s.label}</p>
+          <p className={`mt-3 text-3xl font-bold ${s.accent}`}>{s.value}</p>
+        </div>
+      ))}
     </div>
   );
 }
@@ -407,6 +582,7 @@ function ProgramasView({
   ous,
   modalCriterio,
   setModalCriterio,
+  readOnly,
 }) {
   const [nombre, setNombre] = useState("");
   const [clienteId, setClienteId] = useState("");
@@ -443,42 +619,45 @@ function ProgramasView({
         ous={ous}
         onBack={() => setActivePrograma(null)}
         setModalCriterio={setModalCriterio}
+        readOnly={readOnly}
       />
     );
   }
 
   return (
     <div className="space-y-6">
-      <form
-        onSubmit={handleCreate}
-        className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-6 sm:grid-cols-[2fr_2fr_auto]"
-      >
-        <input
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nombre del programa"
-          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-        />
-        <select
-          value={clienteId}
-          onChange={(e) => setClienteId(e.target.value)}
-          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+      {!readOnly && (
+        <form
+          onSubmit={handleCreate}
+          className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-6 sm:grid-cols-[2fr_2fr_auto]"
         >
-          <option value="">Empresa / Cliente</option>
-          {clientes.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.nombre}
-            </option>
-          ))}
-        </select>
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-orange-400 disabled:opacity-50"
-        >
-          {saving ? "Guardando…" : "Crear Programa"}
-        </button>
-      </form>
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Nombre del programa"
+            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+          />
+          <select
+            value={clienteId}
+            onChange={(e) => setClienteId(e.target.value)}
+            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+          >
+            <option value="">Empresa / Cliente</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-orange-400 disabled:opacity-50"
+          >
+            {saving ? "Guardando…" : "Crear Programa"}
+          </button>
+        </form>
+      )}
 
       <div className="overflow-hidden rounded-3xl border border-slate-200">
         <table className="w-full text-left text-sm">
@@ -537,6 +716,7 @@ function MatrizScampi({
   ous,
   onBack,
   setModalCriterio,
+  readOnly,
 }) {
   const rows = useMemo(() => {
     return criterios.map((crit) => {
@@ -625,12 +805,16 @@ function MatrizScampi({
                   );
                 })}
                 <td className="px-5 py-3 text-right">
-                  <button
-                    onClick={() => setModalCriterio(criterio)}
-                    className="rounded-xl border border-slate-300 px-4 py-1.5 text-xs font-medium text-slate-700 transition hover:border-orange-500 hover:text-orange-400"
-                  >
-                    Auditar
-                  </button>
+                  {readOnly ? (
+                    <span className="text-xs text-slate-400">Solo lectura</span>
+                  ) : (
+                    <button
+                      onClick={() => setModalCriterio(criterio)}
+                      className="rounded-xl border border-slate-300 px-4 py-1.5 text-xs font-medium text-slate-700 transition hover:border-orange-500 hover:text-orange-400"
+                    >
+                      Auditar
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -1466,7 +1650,7 @@ function ConfiguracionView({
         />
       )}
 
-      {tab === "usuarios" && <UsuariosPanel usuarios={usuarios} setUsuarios={setUsuarios} />}
+      {tab === "usuarios" && <UsuariosPanel usuarios={usuarios} setUsuarios={setUsuarios} clientes={clientes} />}
 
       {tab === "escalas" && <EscalasPanel />}
     </div>
@@ -1805,21 +1989,34 @@ function ClientesOuPanel({ clientes, unidadesOrganizacionales, setClientes, setU
   );
 }
 
-function UsuariosPanel({ usuarios, setUsuarios }) {
+function UsuariosPanel({ usuarios, setUsuarios, clientes }) {
   const ROLES = ["Auditor Líder", "Consultor Capturista"];
   const [nombre, setNombre] = useState("");
   const [rol, setRol] = useState(ROLES[0]);
+  const [tipoUsuario, setTipoUsuario] = useState("Consultor");
+  const [clienteId, setClienteId] = useState("");
   const [saving, setSaving] = useState(false);
 
   const handleCreate = async (e) => {
     e.preventDefault();
     if (!nombre.trim()) return;
     setSaving(true);
-    const { data, error } = await supabase.from("usuarios").insert([{ nombre, rol }]).select();
+    const { data, error } = await supabase
+      .from("usuarios")
+      .insert([
+        {
+          nombre,
+          rol,
+          tipo_usuario: tipoUsuario,
+          cliente_id: tipoUsuario === "Cliente" ? clienteId || null : null,
+        },
+      ])
+      .select();
     setSaving(false);
     if (error) return console.error(error);
     setUsuarios((prev) => [...prev, data[0]]);
     setNombre("");
+    setClienteId("");
   };
 
   return (
@@ -1828,9 +2025,10 @@ function UsuariosPanel({ usuarios, setUsuarios }) {
       <p className="text-xs text-slate-500">
         El rol <strong className="text-slate-700">Auditor Líder</strong> es el único habilitado para fijar el
         dictamen final. <strong className="text-slate-700">Consultor Capturista</strong> únicamente registra
-        evidencia.
+        evidencia. El <strong className="text-slate-700">tipo de usuario</strong> controla qué módulos de
+        navegación ve cada persona.
       </p>
-      <form onSubmit={handleCreate} className="grid gap-2 sm:grid-cols-[2fr_2fr_auto]">
+      <form onSubmit={handleCreate} className="grid gap-2 sm:grid-cols-2">
         <input
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
@@ -1838,21 +2036,48 @@ function UsuariosPanel({ usuarios, setUsuarios }) {
           className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
         />
         <select
+          value={tipoUsuario}
+          onChange={(e) => setTipoUsuario(e.target.value)}
+          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+        >
+          {TIPOS_USUARIO.map((t) => (
+            <option key={t} value={t}>
+              Tipo: {t}
+            </option>
+          ))}
+        </select>
+        <select
           value={rol}
           onChange={(e) => setRol(e.target.value)}
           className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
         >
           {ROLES.map((r) => (
             <option key={r} value={r}>
-              {r}
+              Rol auditoría: {r}
             </option>
           ))}
         </select>
+        {tipoUsuario === "Cliente" ? (
+          <select
+            value={clienteId}
+            onChange={(e) => setClienteId(e.target.value)}
+            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+          >
+            <option value="">Vincular a cliente</option>
+            {clientes.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div />
+        )}
         <button
           disabled={saving}
-          className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
+          className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50 sm:col-span-2"
         >
-          Añadir
+          Añadir Usuario
         </button>
       </form>
       <ul className="space-y-1.5">
@@ -1861,9 +2086,20 @@ function UsuariosPanel({ usuarios, setUsuarios }) {
             key={u.id}
             className="flex items-center justify-between rounded-xl bg-slate-100 px-4 py-2 text-sm text-slate-800"
           >
-            {u.nombre}
-            <span className="rounded-full bg-slate-700 px-3 py-1 text-[11px] text-slate-700">{u.rol}</span>
-          </li>
+            <span>
+              {u.nombre}
+              {u.tipo_usuario === "Cliente" && u.cliente_id && (
+                <span className="ml-2 text-[11px] text-slate-400">
+                  ({clientes.find((c) => c.id === u.cliente_id)?.nombre || "—"})
+                </span>
+              )}
+            </span>
+            <span className="flex gap-1.5">
+              <span className="rounded-full bg-orange-100 px-3 py-1 text-[11px] text-orange-700">
+                {u.tipo_usuario || "Consultor"}
+              </span>
+              <span className="rounded-full bg-slate-200 px-3 py-1 text-[11px] text-slate-700">{u.rol}</span>
+            </span>
         ))}
       </ul>
     </div>
