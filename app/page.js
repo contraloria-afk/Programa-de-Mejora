@@ -12,11 +12,22 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 const SCAMPI_LEVELS = [
-  { code: "FI", label: "Plenamente Implementado", color: "bg-emerald-500", ring: "ring-emerald-400" },
-  { code: "LI", label: "Largamente Implementado", color: "bg-amber-500", ring: "ring-amber-400" },
-  { code: "PI", label: "Parcialmente Implementado", color: "bg-orange-500", ring: "ring-orange-400" },
-  { code: "NI", label: "No Implementado", color: "bg-rose-500", ring: "ring-rose-400" },
+  { code: "FI", label: "Fully Implemented", color: "bg-emerald-500", ring: "ring-emerald-400" },
+  { code: "LI", label: "Largely Implemented", color: "bg-amber-500", ring: "ring-amber-400" },
+  { code: "PI", label: "Partially Implemented", color: "bg-orange-500", ring: "ring-orange-400" },
+  { code: "NI", label: "Not Implemented", color: "bg-rose-500", ring: "ring-rose-400" },
+  { code: "NA", label: "Not Applicable", color: "bg-slate-400", ring: "ring-slate-300" },
 ];
+
+const TIPOS_COMPONENTE = [
+  { value: "Transaccion", label: "Transacción" },
+  { value: "Consulta", label: "Consulta" },
+  { value: "Reporte", label: "Reporte" },
+  { value: "Catalogo", label: "Catálogo" },
+  { value: "Administracion", label: "Administración" },
+];
+
+const TIPOS_USUARIO = ["Administrador", "Consultor", "Cliente"];
 
 const DEFAULT_OUS = ["Matriz_Norte", "Sucursal_Sur"];
 
@@ -31,6 +42,7 @@ function scampiMeta(code) {
 export default function Page() {
   const [activeView, setActiveView] = useState("dashboard");
   const [usuarioActivoId, setUsuarioActivoId] = useState("");
+  const [tipoUsuarioDemo, setTipoUsuarioDemo] = useState("Administrador"); // fallback sin login real
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -107,7 +119,7 @@ export default function Page() {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      <Sidebar activeView={activeView} setActiveView={setActiveView} />
+      <Sidebar activeView={activeView} setActiveView={setActiveView} tipoUsuario={tipoUsuarioDemo} />
 
       <main className="flex-1 overflow-y-auto">
         <TopBar
@@ -116,6 +128,12 @@ export default function Page() {
           usuarios={usuarios}
           usuarioActivoId={usuarioActivoId}
           setUsuarioActivoId={setUsuarioActivoId}
+          tipoUsuarioDemo={tipoUsuarioDemo}
+          setTipoUsuarioDemo={(t) => {
+            setTipoUsuarioDemo(t);
+            if (t === "Cliente") setActiveView("programas");
+            else if (t === "Consultor" && activeView === "configuracion") setActiveView("dashboard");
+          }}
         />
 
         {errorMsg && (
@@ -205,13 +223,14 @@ export default function Page() {
    SIDEBAR
    ────────────────────────────────────────────────────────────────────────── */
 
-function Sidebar({ activeView, setActiveView }) {
-  const items = [
-    { id: "dashboard", label: "Inicio", icon: HomeIcon },
-    { id: "programas", label: "Programas de Mejora", icon: ClipboardIcon },
-    { id: "reportes", label: "Reportes", icon: ChartIcon },
-    { id: "configuracion", label: "Configuración", icon: GearIcon },
+function Sidebar({ activeView, setActiveView, tipoUsuario }) {
+  const itemsBase = [
+    { id: "dashboard", label: "Inicio", icon: HomeIcon, roles: ["Administrador", "Consultor"] },
+    { id: "programas", label: "Programas de Mejora", icon: ClipboardIcon, roles: ["Administrador", "Consultor", "Cliente"] },
+    { id: "reportes", label: "Reportes", icon: ChartIcon, roles: ["Administrador", "Consultor"] },
+    { id: "configuracion", label: "Configuración", icon: GearIcon, roles: ["Administrador", "Consultor"] },
   ];
+  const items = itemsBase.filter((item) => item.roles.includes(tipoUsuario));
 
   return (
     <aside className="flex w-64 flex-col border-r border-slate-200 bg-white px-4 py-6">
@@ -223,6 +242,10 @@ function Sidebar({ activeView, setActiveView }) {
           <p className="text-sm font-bold tracking-wide text-slate-900">ADVAN ONE</p>
           <p className="text-[11px] text-slate-500">Appraisal Assistant</p>
         </div>
+      </div>
+
+      <div className="mb-4 rounded-xl bg-slate-100 px-3 py-2 text-[11px] font-semibold text-slate-500">
+        Vista: {tipoUsuario}
       </div>
 
       <nav className="flex flex-1 flex-col gap-1">
@@ -253,7 +276,7 @@ function Sidebar({ activeView, setActiveView }) {
   );
 }
 
-function TopBar({ loading, onRefresh, usuarios, usuarioActivoId, setUsuarioActivoId }) {
+function TopBar({ loading, onRefresh, usuarios, usuarioActivoId, setUsuarioActivoId, tipoUsuarioDemo, setTipoUsuarioDemo }) {
   const usuarioActivo = usuarios.find((u) => u.id === usuarioActivoId);
   return (
     <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-8 py-5">
@@ -262,6 +285,20 @@ function TopBar({ loading, onRefresh, usuarios, usuarioActivoId, setUsuarioActiv
         <p className="text-xs text-slate-500">Evaluación de adopción y madurez de procesos</p>
       </div>
       <div className="flex items-center gap-3">
+        <div className="flex flex-col items-end">
+          <label className="text-[10px] text-slate-400">Vista como (demo, sin login real)</label>
+          <select
+            value={tipoUsuarioDemo}
+            onChange={(e) => setTipoUsuarioDemo(e.target.value)}
+            className="rounded-xl border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 focus:border-orange-500 focus:outline-none"
+          >
+            {TIPOS_USUARIO.map((t) => (
+              <option key={t} value={t}>
+                {t}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="flex flex-col items-end">
           <select
             value={usuarioActivoId}
@@ -616,10 +653,10 @@ function MatrizScampi({
    ────────────────────────────────────────────────────────────────────────── */
 
 const EVIDENCE_TYPES = [
-  { value: "Direct Artifact", label: "Artefacto Directo" },
-  { value: "Indirect Artifact", label: "Artefacto Indirecto" },
-  { value: "Direct Affirmation", label: "Afirmación Directa (Entrevista)" },
+  { value: "PII", label: "PII — Practice Implementation Indicator (artefacto)" },
+  { value: "Afirmation", label: "Afirmation (entrevista)" },
 ];
+
 
 const CARACTERISTICAS = [
   { value: "Not Characterized", label: "Sin caracterizar", color: "bg-slate-200 text-slate-600" },
@@ -657,7 +694,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
   const [loadingEvidencias, setLoadingEvidencias] = useState(false);
 
   const [nuevaEvNombre, setNuevaEvNombre] = useState("");
-  const [nuevaEvTipo, setNuevaEvTipo] = useState("Direct Artifact");
+  const [nuevaEvTipo, setNuevaEvTipo] = useState("PII");
   const [nuevaEvLink, setNuevaEvLink] = useState("");
   const [nuevaEvEntrevistaId, setNuevaEvEntrevistaId] = useState("");
 
@@ -735,7 +772,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
 
   const handleAddEvidencia = async () => {
     if (!nuevaEvNombre.trim()) return;
-    if (nuevaEvTipo === "Direct Affirmation" && !nuevaEvEntrevistaId) return;
+    if (nuevaEvTipo === "Afirmation" && !nuevaEvEntrevistaId) return;
 
     const { data, error } = await supabase
       .from("evidencias")
@@ -747,7 +784,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
           nombre: nuevaEvNombre,
           tipo: nuevaEvTipo,
           document_link: nuevaEvLink || null,
-          entrevista_id: nuevaEvTipo === "Direct Affirmation" ? nuevaEvEntrevistaId : null,
+          entrevista_id: nuevaEvTipo === "Afirmation" ? nuevaEvEntrevistaId : null,
           caracteristica: "Not Characterized",
         },
       ])
@@ -961,7 +998,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
                 />
               </div>
 
-              {nuevaEvTipo === "Direct Affirmation" && (
+              {nuevaEvTipo === "Afirmation" && (
                 <div className="space-y-2 rounded-xl bg-orange-50 p-2.5">
                   <select
                     value={nuevaEvEntrevistaId}
@@ -1444,6 +1481,7 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
   const [saving, setSaving] = useState(false);
 
   const [moduloExistenteId, setModuloExistenteId] = useState("");
+  const [critTipoComponente, setCritTipoComponente] = useState("Transaccion");
   const [critCodigo2, setCritCodigo2] = useState("");
   const [critNombre2, setCritNombre2] = useState("");
   const [critEvidencia2, setCritEvidencia2] = useState("");
@@ -1495,6 +1533,7 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
           nombre: critNombre2,
           codigo: critCodigo2 || null,
           modulo_id: moduloExistenteId,
+          tipo_componente: critTipoComponente,
           evidencia_sugerida: critEvidencia2 || null,
           afirmacion_guia: critAfirmacion2 || null,
         },
@@ -1580,6 +1619,17 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
               </optgroup>
             ))}
           </select>
+          <select
+            value={critTipoComponente}
+            onChange={(e) => setCritTipoComponente(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+          >
+            {TIPOS_COMPONENTE.map((t) => (
+              <option key={t.value} value={t.value}>
+                {t.label}
+              </option>
+            ))}
+          </select>
           <div className="grid grid-cols-[1fr_2fr] gap-2">
             <input
               value={critCodigo2}
@@ -1633,14 +1683,21 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
                       ({criterios.filter((c) => c.modulo_id === mod.id).length} criterios)
                     </span>
                   </p>
-                  {criterios
-                    .filter((c) => c.modulo_id === mod.id)
-                    .map((c) => (
-                      <p key={c.id} className="ml-5 text-[11px] text-slate-500">
-                        • {c.codigo ? `${c.codigo} — ` : ""}
-                        {c.nombre}
-                      </p>
-                    ))}
+                  {TIPOS_COMPONENTE.map((tipo) => {
+                    const items = criterios.filter((c) => c.modulo_id === mod.id && c.tipo_componente === tipo.value);
+                    if (items.length === 0) return null;
+                    return (
+                      <div key={tipo.value} className="ml-5 mt-1">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">{tipo.label}</p>
+                        {items.map((c) => (
+                          <p key={c.id} className="ml-2 text-[11px] text-slate-500">
+                            • {c.codigo ? `${c.codigo} — ` : ""}
+                            {c.nombre}
+                          </p>
+                        ))}
+                      </div>
+                    );
+                  })}
                 </div>
               ))}
           </div>
