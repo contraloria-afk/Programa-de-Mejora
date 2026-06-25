@@ -38,6 +38,7 @@ export default function Page() {
   const [criterios, setCriterios] = useState([]);
   const [programas, setProgramas] = useState([]);
   const [evaluaciones, setEvaluaciones] = useState([]);
+  const [evidencias, setEvidencias] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [unidadesOrganizacionales, setUnidadesOrganizacionales] = useState([]);
@@ -58,6 +59,7 @@ export default function Page() {
         { data: cliData, error: cliErr },
         { data: userData, error: userErr },
         { data: ouData, error: ouErr },
+        { data: eviData, error: eviErr },
       ] = await Promise.all([
         supabase.from("categorias").select("*").order("nombre"),
         supabase.from("modulos").select("*").order("nombre"),
@@ -67,9 +69,10 @@ export default function Page() {
         supabase.from("clientes").select("*").order("nombre"),
         supabase.from("usuarios").select("*").order("nombre"),
         supabase.from("unidades_organizacionales").select("*").order("nombre"),
+        supabase.from("evidencias").select("*"),
       ]);
 
-      const firstError = catErr || modErr || critErr || progErr || evalErr || cliErr || userErr || ouErr;
+      const firstError = catErr || modErr || critErr || progErr || evalErr || cliErr || userErr || ouErr || eviErr;
       if (firstError) throw firstError;
 
       setCategorias(catData || []);
@@ -77,6 +80,7 @@ export default function Page() {
       setCriterios(critData || []);
       setProgramas(progData || []);
       setEvaluaciones(evalData || []);
+      setEvidencias(eviData || []);
       setClientes(cliData || []);
       setUsuarios(userData || []);
       setUnidadesOrganizacionales(ouData || []);
@@ -136,9 +140,23 @@ export default function Page() {
               categorias={categorias}
               evaluaciones={evaluaciones}
               setEvaluaciones={setEvaluaciones}
+              evidencias={evidencias}
               ous={ousForActivePrograma}
               modalCriterio={modalCriterio}
               setModalCriterio={setModalCriterio}
+            />
+          )}
+
+          {activeView === "reportes" && (
+            <ReporteView
+              programas={programas}
+              clientes={clientes}
+              categorias={categorias}
+              modulos={modulos}
+              criterios={criterios}
+              evaluaciones={evaluaciones}
+              evidencias={evidencias}
+              unidadesOrganizacionales={unidadesOrganizacionales}
             />
           )}
 
@@ -183,6 +201,7 @@ function Sidebar({ activeView, setActiveView }) {
   const items = [
     { id: "dashboard", label: "Inicio", icon: HomeIcon },
     { id: "programas", label: "Programas de Mejora", icon: ClipboardIcon },
+    { id: "reportes", label: "Reportes", icon: ChartIcon },
     { id: "configuracion", label: "Configuración", icon: GearIcon },
   ];
 
@@ -313,6 +332,7 @@ function ProgramasView({
   categorias,
   evaluaciones,
   setEvaluaciones,
+  evidencias,
   ous,
   modalCriterio,
   setModalCriterio,
@@ -348,6 +368,7 @@ function ProgramasView({
         categorias={categorias}
         evaluaciones={evaluaciones}
         setEvaluaciones={setEvaluaciones}
+        evidencias={evidencias}
         ous={ous}
         onBack={() => setActivePrograma(null)}
         setModalCriterio={setModalCriterio}
@@ -441,6 +462,7 @@ function MatrizScampi({
   modulos,
   categorias,
   evaluaciones,
+  evidencias,
   ous,
   onBack,
   setModalCriterio,
@@ -454,11 +476,19 @@ function MatrizScampi({
         const ev = evaluaciones.find(
           (e) => e.criterio_id === crit.id && e.programa_id === programa.id && e.organizational_unit === ou
         );
-        porOu[ou] = ev?.status_scampi || null;
+        const evidenciasOu = evidencias.filter(
+          (ev2) => ev2.criterio_id === crit.id && ev2.programa_id === programa.id && ev2.organizational_unit === ou
+        );
+        porOu[ou] = {
+          status: ev?.status_scampi || null,
+          total: evidenciasOu.length,
+          strength: evidenciasOu.filter((e) => e.caracteristica === "Strength").length,
+          weakness: evidenciasOu.filter((e) => e.caracteristica === "Weakness").length,
+        };
       });
       return { criterio: crit, modulo, categoria, porOu };
     });
-  }, [criterios, modulos, categorias, evaluaciones, ous, programa.id]);
+  }, [criterios, modulos, categorias, evaluaciones, evidencias, ous, programa.id]);
 
   return (
     <div className="space-y-5">
@@ -496,21 +526,30 @@ function MatrizScampi({
                   {modulo?.nombre || "—"} <span className="text-slate-600">/</span> {categoria?.nombre || "—"}
                 </td>
                 {ous.map((ou) => {
-                  const status = porOu[ou];
-                  const meta = status ? scampiMeta(status) : null;
+                  const cell = porOu[ou];
+                  const meta = cell.status ? scampiMeta(cell.status) : null;
                   return (
                     <td key={ou} className="px-5 py-3">
-                      {meta ? (
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full ${meta.color} px-3 py-1 text-xs font-semibold text-slate-950`}
-                        >
-                          {meta.code}
-                        </span>
-                      ) : (
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">
-                          Pendiente
-                        </span>
-                      )}
+                      <div className="flex flex-col gap-1">
+                        {meta ? (
+                          <span
+                            className={`inline-flex w-fit items-center gap-1.5 rounded-full ${meta.color} px-3 py-1 text-xs font-semibold text-slate-950`}
+                          >
+                            {meta.code}
+                          </span>
+                        ) : (
+                          <span className="inline-flex w-fit items-center rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-500">
+                            Pendiente
+                          </span>
+                        )}
+                        {cell.total > 0 && (
+                          <span className="text-[10px] text-slate-500">
+                            {cell.total} ev.
+                            {cell.strength > 0 && <span className="ml-1 text-emerald-600">+{cell.strength}</span>}
+                            {cell.weakness > 0 && <span className="ml-1 text-rose-600">-{cell.weakness}</span>}
+                          </span>
+                        )}
+                      </div>
                     </td>
                   );
                 })}
@@ -1011,6 +1050,245 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+   REPORTES — Vista agregada de auditoría con exportación CSV
+   ────────────────────────────────────────────────────────────────────────── */
+
+function ReporteView({
+  programas,
+  clientes,
+  categorias,
+  modulos,
+  criterios,
+  evaluaciones,
+  evidencias,
+  unidadesOrganizacionales,
+}) {
+  const [programaId, setProgramaId] = useState(programas[0]?.id || "");
+
+  const programa = programas.find((p) => p.id === programaId);
+
+  const ous = useMemo(() => {
+    if (!programa) return [];
+    const filtered = unidadesOrganizacionales
+      .filter((ou) => ou.cliente_id === programa.cliente_id)
+      .map((ou) => ou.nombre);
+    return filtered.length ? filtered : DEFAULT_OUS;
+  }, [programa, unidadesOrganizacionales]);
+
+  const filas = useMemo(() => {
+    if (!programa) return [];
+    return criterios.map((crit) => {
+      const modulo = modulos.find((m) => m.id === crit.modulo_id);
+      const categoria = categorias.find((c) => c.id === modulo?.categoria_id);
+
+      const porOu = ous.map((ou) => {
+        const ev = evaluaciones.find(
+          (e) => e.criterio_id === crit.id && e.programa_id === programa.id && e.organizational_unit === ou
+        );
+        const evid = evidencias.filter(
+          (e) => e.criterio_id === crit.id && e.programa_id === programa.id && e.organizational_unit === ou
+        );
+        return {
+          ou,
+          status: ev?.status_scampi || "Sin evaluar",
+          statusInstanciacion: ev?.status_instanciacion || "—",
+          oportunidades: ev?.oportunidades_mejora_ou || "",
+          totalEvidencias: evid.length,
+          strength: evid.filter((e) => e.caracteristica === "Strength").length,
+          weakness: evid.filter((e) => e.caracteristica === "Weakness").length,
+        };
+      });
+
+      return { criterio: crit, modulo, categoria, porOu };
+    });
+  }, [programa, criterios, modulos, categorias, evaluaciones, evidencias, ous]);
+
+  const resumen = useMemo(() => {
+    const counts = { FI: 0, LI: 0, PI: 0, NI: 0, "Sin evaluar": 0 };
+    let totalEvidencias = 0;
+    let totalDebilidades = 0;
+    filas.forEach((f) =>
+      f.porOu.forEach((c) => {
+        counts[c.status] = (counts[c.status] || 0) + 1;
+        totalEvidencias += c.totalEvidencias;
+        totalDebilidades += c.weakness;
+      })
+    );
+    return { counts, totalEvidencias, totalDebilidades };
+  }, [filas]);
+
+  const handleExportCsv = () => {
+    const header = [
+      "Categoria",
+      "Modulo",
+      "Criterio",
+      "Codigo",
+      "OU",
+      "Status SCAMPI",
+      "Status Instanciacion",
+      "Evidencias",
+      "Fortalezas",
+      "Debilidades",
+      "Oportunidades de Mejora",
+    ];
+    const rows = [];
+    filas.forEach((f) => {
+      f.porOu.forEach((c) => {
+        rows.push([
+          f.categoria?.nombre || "",
+          f.modulo?.nombre || "",
+          f.criterio.nombre,
+          f.criterio.codigo || "",
+          c.ou,
+          c.status,
+          c.statusInstanciacion,
+          c.totalEvidencias,
+          c.strength,
+          c.weakness,
+          (c.oportunidades || "").replace(/\n/g, " "),
+        ]);
+      });
+    });
+
+    const csvContent = [header, ...rows]
+      .map((r) => r.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `reporte_${(programa?.nombre || "auditoria").replace(/\s+/g, "_")}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  if (!programa) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-8 text-center text-slate-500">
+        No hay programas de mejora registrados todavía. Crea uno en "Programas de Mejora" para ver su reporte aquí.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-slate-200 bg-white p-5">
+        <div className="flex items-center gap-3">
+          <select
+            value={programaId}
+            onChange={(e) => setProgramaId(e.target.value)}
+            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+          >
+            {programas.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre}
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-slate-500">
+            {clientes.find((c) => c.id === programa.cliente_id)?.nombre || "Sin cliente"}
+          </span>
+        </div>
+        <button
+          onClick={handleExportCsv}
+          className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400"
+        >
+          Descargar CSV
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+        {SCAMPI_LEVELS.map((lvl) => (
+          <div key={lvl.code} className="rounded-2xl border border-slate-200 bg-white p-4">
+            <span className={`inline-block h-2.5 w-2.5 rounded-full ${lvl.color}`} />
+            <p className="mt-2 text-2xl font-bold text-slate-900">{resumen.counts[lvl.code] || 0}</p>
+            <p className="text-[11px] text-slate-500">{lvl.code} · {lvl.label}</p>
+          </div>
+        ))}
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-slate-300" />
+          <p className="mt-2 text-2xl font-bold text-slate-900">{resumen.counts["Sin evaluar"] || 0}</p>
+          <p className="text-[11px] text-slate-500">Sin evaluar</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-2xl font-bold text-sky-600">{resumen.totalEvidencias}</p>
+          <p className="text-[11px] text-slate-500">Evidencias totales recolectadas</p>
+        </div>
+        <div className="rounded-2xl border border-slate-200 bg-white p-4">
+          <p className="text-2xl font-bold text-rose-600">{resumen.totalDebilidades}</p>
+          <p className="text-[11px] text-slate-500">Debilidades identificadas</p>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-slate-200">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-white text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="px-5 py-3">Categoría</th>
+              <th className="px-5 py-3">Módulo</th>
+              <th className="px-5 py-3">Criterio</th>
+              {ous.map((ou) => (
+                <th key={ou} className="px-5 py-3">
+                  {ou.replace(/_/g, " ")}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 bg-slate-50">
+            {filas.map(({ criterio, modulo, categoria, porOu }) => (
+              <tr key={criterio.id} className="hover:bg-slate-100/30">
+                <td className="px-5 py-3 text-xs text-slate-500">{categoria?.nombre || "—"}</td>
+                <td className="px-5 py-3 text-xs text-slate-500">{modulo?.nombre || "—"}</td>
+                <td className="px-5 py-3">
+                  <p className="font-medium text-slate-900">{criterio.nombre}</p>
+                  <p className="text-xs text-slate-400">{criterio.codigo}</p>
+                </td>
+                {porOu.map((c) => {
+                  const meta = SCAMPI_LEVELS.find((l) => l.code === c.status);
+                  return (
+                    <td key={c.ou} className="px-5 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span
+                          className={`inline-flex w-fit items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                            meta ? `${meta.color} text-slate-950` : "bg-slate-100 text-slate-500"
+                          }`}
+                        >
+                          {c.status}
+                        </span>
+                        {c.totalEvidencias > 0 && (
+                          <span className="text-[10px] text-slate-500">
+                            {c.totalEvidencias} ev.
+                            {c.strength > 0 && <span className="ml-1 text-emerald-600">+{c.strength}</span>}
+                            {c.weakness > 0 && <span className="ml-1 text-rose-600">-{c.weakness}</span>}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+            {filas.length === 0 && (
+              <tr>
+                <td colSpan={3 + ous.length} className="px-6 py-10 text-center text-slate-500">
+                  Sin criterios en el catálogo.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
    C. CONFIGURACIÓN — CATÁLOGOS MAESTROS (5 bloques)
    ────────────────────────────────────────────────────────────────────────── */
 
@@ -1380,6 +1658,14 @@ function EscalasPanel() {
 /* ──────────────────────────────────────────────────────────────────────────
    ICONOS
    ────────────────────────────────────────────────────────────────────────── */
+
+function ChartIcon(props) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}>
+      <path d="M4 19V5M10 19V9M16 19v-6M22 19H2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function HomeIcon(props) {
   return (
