@@ -542,57 +542,174 @@ function MatrizScampi({
    MODAL DE AUDITORÍA
    ────────────────────────────────────────────────────────────────────────── */
 
+const EVIDENCE_TYPES = [
+  { value: "Direct Artifact", label: "Artefacto Directo" },
+  { value: "Indirect Artifact", label: "Artefacto Indirecto" },
+  { value: "Direct Affirmation", label: "Afirmación Directa (Entrevista)" },
+];
+
+const CARACTERISTICAS = [
+  { value: "Not Characterized", label: "Sin caracterizar", color: "bg-slate-200 text-slate-600" },
+  { value: "Strength", label: "Fortaleza", color: "bg-emerald-500 text-slate-950" },
+  { value: "Weakness", label: "Debilidad", color: "bg-rose-500 text-slate-950" },
+  { value: "Strength-Weakness", label: "Fortaleza/Debilidad", color: "bg-amber-500 text-slate-950" },
+];
+
+const STATUS_INSTANCIACION = [
+  "Not Yet Reviewed",
+  "Strong Evidence",
+  "No Evidence",
+  "Conflicting Evidence",
+  "Anomalous Evidence",
+  "Insufficient Evidence",
+];
+
+function caracteristicaMeta(value) {
+  return CARACTERISTICAS.find((c) => c.value === value) || CARACTERISTICAS[0];
+}
+
 function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones, onClose }) {
   const [ou, setOu] = useState(ous[0]);
-  const [evidenciaDirecta, setEvidenciaDirecta] = useState("");
-  const [evidenciaIndirecta, setEvidenciaIndirecta] = useState("");
-  const [afirmaciones, setAfirmaciones] = useState([]);
-  const [nuevaAfirmacion, setNuevaAfirmacion] = useState("");
+
+  const [evaluacion, setEvaluacion] = useState(null);
+  const [statusInstanciacion, setStatusInstanciacion] = useState("Not Yet Reviewed");
+  const [oportunidadesInstancia, setOportunidadesInstancia] = useState("");
+  const [oportunidadesOu, setOportunidadesOu] = useState("");
   const [statusScampi, setStatusScampi] = useState(null);
-  const [syncing, setSyncing] = useState(false);
+
+  const [evidencias, setEvidencias] = useState([]);
+  const [entrevistas, setEntrevistas] = useState([]);
+  const [loadingEvidencias, setLoadingEvidencias] = useState(false);
+
+  const [nuevaEvNombre, setNuevaEvNombre] = useState("");
+  const [nuevaEvTipo, setNuevaEvTipo] = useState("Direct Artifact");
+  const [nuevaEvLink, setNuevaEvLink] = useState("");
+  const [nuevaEvEntrevistaId, setNuevaEvEntrevistaId] = useState("");
+
+  const [nuevaEntrevistaNombre, setNuevaEntrevistaNombre] = useState("");
+  const [nuevaEntrevistaParticipantes, setNuevaEntrevistaParticipantes] = useState("");
+  const [showEntrevistaForm, setShowEntrevistaForm] = useState(false);
+
+  const [saving, setSaving] = useState(false);
   const [syncOk, setSyncOk] = useState(false);
 
-  const loadOuState = useCallback(
-    (targetOu) => {
+  const loadOuData = useCallback(
+    async (targetOu) => {
+      setLoadingEvidencias(true);
+      setSyncOk(false);
+
       const ev = evaluaciones.find(
         (e) => e.criterio_id === criterio.id && e.programa_id === programa?.id && e.organizational_unit === targetOu
       );
-      setEvidenciaDirecta(ev?.evidencia_directa || "");
-      setEvidenciaIndirecta(ev?.evidencia_indirecta || "");
-      setAfirmaciones(ev?.afirmaciones || []);
+      setEvaluacion(ev || null);
+      setStatusInstanciacion(ev?.status_instanciacion || "Not Yet Reviewed");
+      setOportunidadesInstancia(ev?.oportunidades_mejora_instancia || "");
+      setOportunidadesOu(ev?.oportunidades_mejora_ou || "");
       setStatusScampi(ev?.status_scampi || null);
-      setSyncOk(false);
+
+      const [{ data: evData, error: evErr }, { data: entData, error: entErr }] = await Promise.all([
+        supabase
+          .from("evidencias")
+          .select("*")
+          .eq("criterio_id", criterio.id)
+          .eq("programa_id", programa?.id)
+          .eq("organizational_unit", targetOu)
+          .order("created_at"),
+        supabase
+          .from("entrevistas")
+          .select("*")
+          .eq("programa_id", programa?.id)
+          .eq("organizational_unit", targetOu)
+          .order("created_at"),
+      ]);
+
+      if (!evErr) setEvidencias(evData || []);
+      if (!entErr) setEntrevistas(entData || []);
+      setLoadingEvidencias(false);
     },
     [criterio.id, programa?.id, evaluaciones]
   );
 
   useEffect(() => {
-    loadOuState(ou);
-  }, [ou, loadOuState]);
+    loadOuData(ou);
+  }, [ou, loadOuData]);
 
-  const handleOuChange = (newOu) => {
-    setOu(newOu);
+  const handleCreateEntrevista = async () => {
+    if (!nuevaEntrevistaNombre.trim()) return;
+    const { data, error } = await supabase
+      .from("entrevistas")
+      .insert([
+        {
+          programa_id: programa?.id,
+          organizational_unit: ou,
+          nombre: nuevaEntrevistaNombre,
+          participantes: nuevaEntrevistaParticipantes,
+        },
+      ])
+      .select();
+    if (error) {
+      console.error(error);
+      return;
+    }
+    setEntrevistas((prev) => [...prev, data[0]]);
+    setNuevaEvEntrevistaId(data[0].id);
+    setNuevaEntrevistaNombre("");
+    setNuevaEntrevistaParticipantes("");
+    setShowEntrevistaForm(false);
   };
 
-  const addAfirmacion = () => {
-    if (!nuevaAfirmacion.trim()) return;
-    setAfirmaciones((prev) => [...prev, nuevaAfirmacion.trim()]);
-    setNuevaAfirmacion("");
+  const handleAddEvidencia = async () => {
+    if (!nuevaEvNombre.trim()) return;
+    if (nuevaEvTipo === "Direct Affirmation" && !nuevaEvEntrevistaId) return;
+
+    const { data, error } = await supabase
+      .from("evidencias")
+      .insert([
+        {
+          criterio_id: criterio.id,
+          programa_id: programa?.id,
+          organizational_unit: ou,
+          nombre: nuevaEvNombre,
+          tipo: nuevaEvTipo,
+          document_link: nuevaEvLink || null,
+          entrevista_id: nuevaEvTipo === "Direct Affirmation" ? nuevaEvEntrevistaId : null,
+          caracteristica: "Not Characterized",
+        },
+      ])
+      .select();
+
+    if (error) {
+      console.error(error);
+      return;
+    }
+
+    setEvidencias((prev) => [...prev, data[0]]);
+    setNuevaEvNombre("");
+    setNuevaEvLink("");
+    setNuevaEvEntrevistaId("");
   };
 
-  const removeAfirmacion = (idx) => {
-    setAfirmaciones((prev) => prev.filter((_, i) => i !== idx));
+  const handleSetCaracteristica = async (evidenciaId, caracteristica) => {
+    setEvidencias((prev) => prev.map((e) => (e.id === evidenciaId ? { ...e, caracteristica } : e)));
+    const { error } = await supabase.from("evidencias").update({ caracteristica }).eq("id", evidenciaId);
+    if (error) console.error(error);
+  };
+
+  const handleDeleteEvidencia = async (evidenciaId) => {
+    setEvidencias((prev) => prev.filter((e) => e.id !== evidenciaId));
+    const { error } = await supabase.from("evidencias").delete().eq("id", evidenciaId);
+    if (error) console.error(error);
   };
 
   const handleSync = async () => {
-    setSyncing(true);
+    setSaving(true);
     const payload = {
       criterio_id: criterio.id,
       programa_id: programa?.id,
       organizational_unit: ou,
-      evidencia_directa: evidenciaDirecta,
-      evidencia_indirecta: evidenciaIndirecta,
-      afirmaciones,
+      status_instanciacion: statusInstanciacion,
+      oportunidades_mejora_instancia: oportunidadesInstancia,
+      oportunidades_mejora_ou: oportunidadesOu,
       status_scampi: statusScampi,
     };
 
@@ -601,8 +718,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
       .upsert(payload, { onConflict: "criterio_id, organizational_unit, programa_id" })
       .select();
 
-    setSyncing(false);
-
+    setSaving(false);
     if (error) {
       console.error(error);
       return;
@@ -621,16 +737,21 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
       }
       return [...prev, data[0]];
     });
-
     setSyncOk(true);
   };
 
+  const conteo = useMemo(() => {
+    const strength = evidencias.filter((e) => e.caracteristica === "Strength").length;
+    const weakness = evidencias.filter((e) => e.caracteristica === "Weakness").length;
+    return { strength, weakness, total: evidencias.length };
+  }, [evidencias]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-50/70 px-4 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
         <div className="mb-6 flex items-start justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wider text-orange-400">{criterio.codigo}</p>
+            <p className="text-xs uppercase tracking-wider text-orange-500">{criterio.codigo}</p>
             <h3 className="text-lg font-semibold text-slate-900">{criterio.nombre}</h3>
           </div>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
@@ -644,7 +765,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
             {ous.map((o) => (
               <button
                 key={o}
-                onClick={() => handleOuChange(o)}
+                onClick={() => setOu(o)}
                 className={`rounded-xl px-4 py-2 text-xs font-semibold transition ${
                   ou === o
                     ? "bg-orange-500 text-slate-950"
@@ -657,83 +778,217 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
           </div>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">Evidencia Directa</label>
-            <textarea
-              value={evidenciaDirecta}
-              onChange={(e) => setEvidenciaDirecta(e.target.value)}
-              placeholder="Rutas a documentos, políticas o manuales del ERP"
-              rows={2}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-            />
-          </div>
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          {/* Columna izquierda: evidencias */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h4 className="text-sm font-semibold text-slate-900">
+                Evidencias ({conteo.total})
+                <span className="ml-2 text-xs font-normal text-emerald-600">{conteo.strength} fortalezas</span>
+                <span className="ml-2 text-xs font-normal text-rose-600">{conteo.weakness} debilidades</span>
+              </h4>
+              <span className="text-[11px] text-slate-400">{ou.replace(/_/g, " ")}</span>
+            </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">Evidencia Indirecta</label>
-            <textarea
-              value={evidenciaIndirecta}
-              onChange={(e) => setEvidenciaIndirecta(e.target.value)}
-              placeholder="Capturas de pantalla, queries o logs de auditoría"
-              rows={2}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-            />
-          </div>
+            {loadingEvidencias ? (
+              <p className="text-xs text-slate-400">Cargando evidencias…</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto rounded-2xl border border-slate-200 p-2">
+                {evidencias.length === 0 && (
+                  <p className="px-2 py-4 text-center text-xs text-slate-400">Sin evidencias capturadas todavía.</p>
+                )}
+                {evidencias.map((ev) => {
+                  const meta = caracteristicaMeta(ev.caracteristica);
+                  const entrevista = entrevistas.find((e) => e.id === ev.entrevista_id);
+                  return (
+                    <div key={ev.id} className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-900">{ev.nombre}</p>
+                          <p className="text-[11px] text-slate-500">
+                            {EVIDENCE_TYPES.find((t) => t.value === ev.tipo)?.label || ev.tipo}
+                            {entrevista && ` · ${entrevista.nombre}`}
+                          </p>
+                          {ev.document_link && (
+                            <p className="truncate text-[11px] text-sky-600">{ev.document_link}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteEvidencia(ev.id)}
+                          className="shrink-0 text-slate-400 hover:text-rose-500"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {CARACTERISTICAS.map((c) => (
+                          <button
+                            key={c.value}
+                            onClick={() => handleSetCaracteristica(ev.id, c.value)}
+                            className={`rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${
+                              ev.caracteristica === c.value ? c.color : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                            }`}
+                          >
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">Afirmaciones (Entrevistas)</label>
-            <div className="mb-2 flex gap-2">
+            <div className="space-y-2 rounded-2xl border border-dashed border-slate-300 p-3">
+              <p className="text-xs font-semibold text-slate-700">Agregar evidencia</p>
               <input
-                value={nuevaAfirmacion}
-                onChange={(e) => setNuevaAfirmacion(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && addAfirmacion()}
-                placeholder="Nueva nota de entrevista"
-                className="flex-1 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+                value={nuevaEvNombre}
+                onChange={(e) => setNuevaEvNombre(e.target.value)}
+                placeholder="Nombre de la evidencia"
+                className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
               />
+              <div className="grid grid-cols-2 gap-2">
+                <select
+                  value={nuevaEvTipo}
+                  onChange={(e) => setNuevaEvTipo(e.target.value)}
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-orange-500 focus:outline-none"
+                >
+                  {EVIDENCE_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  value={nuevaEvLink}
+                  onChange={(e) => setNuevaEvLink(e.target.value)}
+                  placeholder="Link / ruta documento"
+                  className="rounded-xl border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+                />
+              </div>
+
+              {nuevaEvTipo === "Direct Affirmation" && (
+                <div className="space-y-2 rounded-xl bg-orange-50 p-2.5">
+                  <select
+                    value={nuevaEvEntrevistaId}
+                    onChange={(e) => setNuevaEvEntrevistaId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 focus:border-orange-500 focus:outline-none"
+                  >
+                    <option value="">Selecciona entrevista</option>
+                    {entrevistas.map((ent) => (
+                      <option key={ent.id} value={ent.id}>
+                        {ent.nombre}
+                      </option>
+                    ))}
+                  </select>
+                  {!showEntrevistaForm ? (
+                    <button
+                      onClick={() => setShowEntrevistaForm(true)}
+                      className="text-[11px] font-semibold text-orange-600 hover:text-orange-700"
+                    >
+                      + Nueva entrevista
+                    </button>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <input
+                        value={nuevaEntrevistaNombre}
+                        onChange={(e) => setNuevaEntrevistaNombre(e.target.value)}
+                        placeholder="Ej: Entrevista PL1"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+                      />
+                      <input
+                        value={nuevaEntrevistaParticipantes}
+                        onChange={(e) => setNuevaEntrevistaParticipantes(e.target.value)}
+                        placeholder="Participantes"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+                      />
+                      <button
+                        onClick={handleCreateEntrevista}
+                        className="w-full rounded-lg bg-orange-500 py-1.5 text-xs font-semibold text-slate-950 hover:bg-orange-400"
+                      >
+                        Crear entrevista
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <button
-                onClick={addAfirmacion}
-                className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-bold text-slate-950 hover:bg-orange-400"
+                onClick={handleAddEvidencia}
+                className="w-full rounded-xl bg-slate-900 py-2 text-xs font-semibold text-white hover:bg-slate-700"
               >
-                +
+                + Agregar evidencia
               </button>
             </div>
-            <ul className="space-y-1.5">
-              {afirmaciones.map((a, idx) => (
-                <li
-                  key={idx}
-                  className="flex items-center justify-between rounded-xl bg-slate-100 px-4 py-2 text-xs text-slate-700"
-                >
-                  {a}
-                  <button onClick={() => removeAfirmacion(idx)} className="text-slate-500 hover:text-rose-400">
-                    ✕
-                  </button>
-                </li>
-              ))}
-            </ul>
           </div>
 
-          <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-500">Dictamen SCAMPI</label>
-            <div className="grid grid-cols-4 gap-2">
-              {SCAMPI_LEVELS.map((lvl) => (
-                <button
-                  key={lvl.code}
-                  onClick={() => setStatusScampi(lvl.code)}
-                  className={`rounded-xl px-3 py-2.5 text-xs font-bold transition ${
-                    statusScampi === lvl.code
-                      ? `${lvl.color} text-slate-950 ring-2 ${lvl.ring}`
-                      : "border border-slate-300 text-slate-500 hover:border-orange-500"
-                  }`}
-                >
-                  {lvl.code}
-                </button>
-              ))}
+          {/* Columna derecha: status y dictamen */}
+          <div className="space-y-4">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-500">Status a nivel Instanciación</label>
+              <select
+                value={statusInstanciacion}
+                onChange={(e) => setStatusInstanciacion(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+              >
+                {STATUS_INSTANCIACION.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-500">
+                Oportunidades de mejora (Instanciación)
+              </label>
+              <textarea
+                value={oportunidadesInstancia}
+                onChange={(e) => setOportunidadesInstancia(e.target.value)}
+                rows={2}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-500">
+                Oportunidades de mejora (Org. Unit — consensuadas)
+              </label>
+              <textarea
+                value={oportunidadesOu}
+                onChange={(e) => setOportunidadesOu(e.target.value)}
+                rows={2}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-slate-500">
+                Dictamen SCAMPI (Roll-up a nivel OU)
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {SCAMPI_LEVELS.map((lvl) => (
+                  <button
+                    key={lvl.code}
+                    onClick={() => setStatusScampi(lvl.code)}
+                    className={`rounded-xl px-3 py-2.5 text-xs font-bold transition ${
+                      statusScampi === lvl.code
+                        ? `${lvl.color} text-slate-950 ring-2 ${lvl.ring}`
+                        : "border border-slate-300 text-slate-500 hover:border-orange-500"
+                    }`}
+                    title={lvl.label}
+                  >
+                    {lvl.code} · {lvl.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-7 flex items-center justify-between">
-          {syncOk && <span className="text-xs text-emerald-400">✓ Sincronizado</span>}
+        <div className="mt-7 flex items-center justify-between border-t border-slate-100 pt-5">
+          {syncOk && <span className="text-xs text-emerald-600">✓ Sincronizado</span>}
           <div className="flex flex-1 justify-end gap-3">
             <button
               onClick={onClose}
@@ -743,10 +998,10 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
             </button>
             <button
               onClick={handleSync}
-              disabled={syncing}
+              disabled={saving}
               className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-orange-400 disabled:opacity-50"
             >
-              {syncing ? "Sincronizando…" : "Sincronizar Cloud"}
+              {saving ? "Sincronizando…" : "Sincronizar Cloud"}
             </button>
           </div>
         </div>
