@@ -30,6 +30,7 @@ function scampiMeta(code) {
 
 export default function Page() {
   const [activeView, setActiveView] = useState("dashboard");
+  const [usuarioActivoId, setUsuarioActivoId] = useState("");
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -109,7 +110,13 @@ export default function Page() {
       <Sidebar activeView={activeView} setActiveView={setActiveView} />
 
       <main className="flex-1 overflow-y-auto">
-        <TopBar loading={loading} onRefresh={fetchAll} />
+        <TopBar
+          loading={loading}
+          onRefresh={fetchAll}
+          usuarios={usuarios}
+          usuarioActivoId={usuarioActivoId}
+          setUsuarioActivoId={setUsuarioActivoId}
+        />
 
         {errorMsg && (
           <div className="mx-8 mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-3 text-sm text-rose-300">
@@ -187,6 +194,7 @@ export default function Page() {
           evaluaciones={evaluaciones}
           setEvaluaciones={setEvaluaciones}
           onClose={() => setModalCriterio(null)}
+          usuarioActivo={usuarios.find((u) => u.id === usuarioActivoId)}
         />
       )}
     </div>
@@ -245,20 +253,46 @@ function Sidebar({ activeView, setActiveView }) {
   );
 }
 
-function TopBar({ loading, onRefresh }) {
+function TopBar({ loading, onRefresh, usuarios, usuarioActivoId, setUsuarioActivoId }) {
+  const usuarioActivo = usuarios.find((u) => u.id === usuarioActivoId);
   return (
     <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-8 py-5">
       <div>
         <h1 className="text-lg font-semibold text-slate-900">Panel de Auditoría ERP</h1>
         <p className="text-xs text-slate-500">Evaluación de adopción y madurez de procesos</p>
       </div>
-      <button
-        onClick={onRefresh}
-        disabled={loading}
-        className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 transition hover:border-orange-500 hover:text-orange-400 disabled:opacity-50"
-      >
-        {loading ? "Sincronizando…" : "Refrescar datos"}
-      </button>
+      <div className="flex items-center gap-3">
+        <div className="flex flex-col items-end">
+          <select
+            value={usuarioActivoId}
+            onChange={(e) => setUsuarioActivoId(e.target.value)}
+            className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-orange-500 focus:outline-none"
+          >
+            <option value="">Sin usuario activo</option>
+            {usuarios.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.nombre} — {u.rol}
+              </option>
+            ))}
+          </select>
+          {usuarioActivo && (
+            <span
+              className={`mt-1 text-[10px] font-semibold ${
+                usuarioActivo.rol === "Auditor Líder" ? "text-orange-500" : "text-slate-400"
+              }`}
+            >
+              {usuarioActivo.rol === "Auditor Líder" ? "Puede fijar dictamen final" : "Solo captura evidencia"}
+            </span>
+          )}
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={loading}
+          className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 transition hover:border-orange-500 hover:text-orange-400 disabled:opacity-50"
+        >
+          {loading ? "Sincronizando…" : "Refrescar datos"}
+        </button>
+      </div>
     </header>
   );
 }
@@ -607,7 +641,9 @@ function caracteristicaMeta(value) {
   return CARACTERISTICAS.find((c) => c.value === value) || CARACTERISTICAS[0];
 }
 
-function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones, onClose }) {
+function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones, onClose, usuarioActivo }) {
+  const esAuditorLider = usuarioActivo?.rol === "Auditor Líder";
+  const puedeFijarDictamen = !usuarioActivo || esAuditorLider; // sin login activo, no se restringe (modo demo)
   const [ou, setOu] = useState(ous[0]);
 
   const [evaluacion, setEvaluacion] = useState(null);
@@ -809,6 +845,13 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
             ✕
           </button>
         </div>
+
+        {usuarioActivo && (
+          <p className="mb-4 text-[11px] text-slate-400">
+            Auditando como: <span className="font-semibold text-slate-600">{usuarioActivo.nombre}</span> ·{" "}
+            {usuarioActivo.rol}
+          </p>
+        )}
 
         <div className="mb-6">
           <label className="mb-2 block text-xs font-medium text-slate-500">Unidad Organizacional</label>
@@ -1021,13 +1064,19 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
                 </label>
                 <button
                   onClick={() => setStatusScampi(sugerenciaRollUp)}
-                  disabled={!sugerenciaRollUp}
+                  disabled={!sugerenciaRollUp || !puedeFijarDictamen}
                   className="rounded-lg bg-slate-100 px-2.5 py-1 text-[10px] font-semibold text-slate-600 hover:bg-slate-200 disabled:opacity-40"
                   title="Sugerencia basada en el conjunto de evidencias capturadas"
                 >
                   ⟲ Sugerir Roll-Up
                 </button>
               </div>
+              {!puedeFijarDictamen && (
+                <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-[11px] text-amber-700">
+                  Solo el <strong>Auditor Líder</strong> puede fijar el dictamen final. Tu rol actual (
+                  {usuarioActivo?.rol}) solo permite capturar evidencia.
+                </p>
+              )}
               {sugerenciaRollUp && statusScampi !== sugerenciaRollUp && (
                 <p className="mb-2 text-[11px] text-amber-600">
                   Sugerencia automática: <strong>{sugerenciaRollUp}</strong> ({conteo.strength} fortalezas,{" "}
@@ -1038,8 +1087,9 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
                 {SCAMPI_LEVELS.map((lvl) => (
                   <button
                     key={lvl.code}
-                    onClick={() => setStatusScampi(lvl.code)}
-                    className={`rounded-xl px-3 py-2.5 text-xs font-bold transition ${
+                    onClick={() => puedeFijarDictamen && setStatusScampi(lvl.code)}
+                    disabled={!puedeFijarDictamen}
+                    className={`rounded-xl px-3 py-2.5 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-50 ${
                       statusScampi === lvl.code
                         ? `${lvl.color} text-slate-950 ring-2 ${lvl.ring}`
                         : "border border-slate-300 text-slate-500 hover:border-orange-500"
