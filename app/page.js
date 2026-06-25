@@ -154,6 +154,7 @@ export default function Page() {
               evidencias={evidencias}
               unidadesOrganizacionales={unidadesOrganizacionales}
               tipoUsuario={tipoUsuarioDemo}
+              usuarioActivoId={usuarioActivoId}
             />
           )}
 
@@ -357,16 +358,24 @@ function Dashboard({
   evidencias,
   unidadesOrganizacionales,
   tipoUsuario,
+  usuarioActivoId,
 }) {
   const [subTab, setSubTab] = useState("general");
 
   const programasEjecutados = programas.filter((p) => p.estatus !== "Planificado").length;
   const usuariosActivos = usuarios.length;
-  const misAsignaciones = evaluaciones.filter((e) => e.status_instanciacion && e.status_instanciacion !== "Not Yet Reviewed").length;
+  const misAsignaciones = usuarioActivoId
+    ? evaluaciones.filter((e) => e.usuario_id === usuarioActivoId).length +
+      evidencias.filter((e) => e.usuario_id === usuarioActivoId).length
+    : evaluaciones.filter((e) => e.status_instanciacion && e.status_instanciacion !== "Not Yet Reviewed").length;
 
   const kpis = [
     { label: "Programas de Mejora Ejecutados", value: programasEjecutados, accent: "text-orange-400" },
-    { label: "Mis Asignaciones", value: misAsignaciones, accent: "text-sky-400" },
+    {
+      label: usuarioActivoId ? "Mis Asignaciones" : "Mis Asignaciones (sin usuario activo)",
+      value: misAsignaciones,
+      accent: "text-sky-400",
+    },
     { label: "Usuarios Activos", value: usuariosActivos, accent: "text-emerald-400" },
     { label: "Clientes", value: clientes.length, accent: "text-purple-400" },
   ];
@@ -970,6 +979,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
           document_link: nuevaEvLink || null,
           entrevista_id: nuevaEvTipo === "Afirmation" ? nuevaEvEntrevistaId : null,
           caracteristica: "Not Characterized",
+          usuario_id: usuarioActivo?.id || null,
         },
       ])
       .select();
@@ -1007,6 +1017,7 @@ function AuditoriaModal({ criterio, programa, ous, evaluaciones, setEvaluaciones
       oportunidades_mejora_instancia: oportunidadesInstancia,
       oportunidades_mejora_ou: oportunidadesOu,
       status_scampi: statusScampi,
+      usuario_id: usuarioActivo?.id || null,
     };
 
     const { data, error } = await supabase
@@ -2100,6 +2111,7 @@ function UsuariosPanel({ usuarios, setUsuarios, clientes }) {
               </span>
               <span className="rounded-full bg-slate-200 px-3 py-1 text-[11px] text-slate-700">{u.rol}</span>
             </span>
+          </li>
         ))}
       </ul>
     </div>
