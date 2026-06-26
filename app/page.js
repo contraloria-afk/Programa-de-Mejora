@@ -45,7 +45,7 @@ export default function Page() {
   const [authLoading, setAuthLoading] = useState(false);
 
   const [activeView, setActiveView] = useState("dashboard");
-  const [dashboardSubView, setDashboardSubView] = useState("general");
+  const [programasSubView, setProgramasSubView] = useState("resumen");
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -169,8 +169,8 @@ export default function Page() {
         activeView={activeView}
         setActiveView={setActiveView}
         tipoUsuario={tipoUsuarioDemo}
-        dashboardSubView={dashboardSubView}
-        setDashboardSubView={setDashboardSubView}
+        programasSubView={programasSubView}
+        setProgramasSubView={setProgramasSubView}
       />
 
       <main className="flex-1 overflow-y-auto">
@@ -196,7 +196,6 @@ export default function Page() {
               unidadesOrganizacionales={unidadesOrganizacionales}
               tipoUsuario={tipoUsuarioDemo}
               usuarioActivoId={usuarioActivoId}
-              subView={dashboardSubView}
             />
           )}
 
@@ -221,6 +220,10 @@ export default function Page() {
               modalCriterio={modalCriterio}
               setModalCriterio={setModalCriterio}
               readOnly={tipoUsuarioDemo === "Cliente"}
+              subView={programasSubView}
+              usuarios={usuarios}
+              unidadesOrganizacionales={unidadesOrganizacionales}
+              tipoUsuario={tipoUsuarioDemo}
             />
           )}
 
@@ -348,7 +351,7 @@ function LoginScreen({ onLogin, loading, error }) {
   );
 }
 
-function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, setDashboardSubView }) {
+function Sidebar({ activeView, setActiveView, tipoUsuario, programasSubView, setProgramasSubView }) {
   const itemsBase = [
     { id: "dashboard", label: "Dashboard", icon: HomeIcon, roles: ["Administrador", "Consultor"] },
     { id: "programas", label: "Programas de Mejora", icon: ClipboardIcon, roles: ["Administrador", "Consultor", "Cliente"] },
@@ -356,11 +359,13 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, set
   ];
   const items = itemsBase.filter((item) => item.roles.includes(tipoUsuario));
 
-  const dashboardSubItems = [
+  const programasSubItems = [
+    { id: "resumen", label: "Resumen / Auditorías" },
     { id: "clientes", label: "Dashboard de Clientes" },
-    { id: "programas-cliente", label: "Programas por Cliente" },
+    { id: "programas-cliente", label: "Programas de Mejora por Cliente" },
     { id: "usabilidad", label: "Usabilidad del Sistema" },
-  ].filter(() => tipoUsuario === "Administrador");
+    { id: "modulos", label: "Módulos" },
+  ].filter((s) => s.id === "resumen" || tipoUsuario === "Administrador");
 
   return (
     <aside className="flex w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 overflow-y-auto">
@@ -381,12 +386,12 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, set
       <nav className="flex flex-1 flex-col gap-1">
         {items.map((item) => {
           const Icon = item.icon;
-          const isDashboard = item.id === "dashboard";
-          const active = isDashboard ? activeView === "dashboard" || activeView === "reportes" : activeView === item.id;
+          const isProgramas = item.id === "programas";
+          const active = activeView === item.id;
           return (
             <div key={item.id}>
               <button
-                onClick={() => setActiveView(isDashboard ? "dashboard" : item.id)}
+                onClick={() => setActiveView(item.id)}
                 className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
                   active
                     ? "bg-orange-500 text-slate-950 shadow-lg shadow-orange-500/20"
@@ -397,32 +402,21 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, set
                 {item.label}
               </button>
 
-              {isDashboard && active && (
+              {isProgramas && active && (
                 <div className="ml-3 mt-1 flex flex-col gap-0.5 border-l border-slate-200 pl-3">
-                  {dashboardSubItems.map((sub) => {
-                    const subActive =
-                      sub.id === "reportes" ? activeView === "reportes" : activeView === "dashboard" && dashboardSubView === sub.id;
-                    return (
-                      <button
-                        key={sub.id}
-                        onClick={() => {
-                          if (sub.id === "reportes") {
-                            setActiveView("reportes");
-                          } else {
-                            setActiveView("dashboard");
-                            setDashboardSubView(sub.id);
-                          }
-                        }}
-                        className={`rounded-xl px-3 py-2 text-left text-xs font-medium transition ${
-                          subActive
-                            ? "bg-orange-100 text-orange-700"
-                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                        }`}
-                      >
-                        {sub.label}
-                      </button>
-                    );
-                  })}
+                  {programasSubItems.map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => setProgramasSubView(sub.id)}
+                      className={`rounded-xl px-3 py-2 text-left text-xs font-medium transition ${
+                        programasSubView === sub.id
+                          ? "bg-orange-100 text-orange-700"
+                          : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
                 </div>
               )}
             </div>
@@ -493,7 +487,6 @@ function Dashboard({
   unidadesOrganizacionales,
   tipoUsuario,
   usuarioActivoId,
-  subView,
 }) {
   const ESTATUS_PROGRAMA = ["Planeado", "En Proceso", "Terminado", "Cancelado"];
   const programasPorEstatus = ESTATUS_PROGRAMA.map((est) => ({
@@ -561,45 +554,25 @@ function Dashboard({
         </div>
       </div>
 
-      {subView === "general" && (
-        <>
-          <div className="rounded-3xl border border-slate-200 bg-white p-6">
-            <h2 className="mb-4 text-sm font-semibold text-slate-800">Distribución de Dictámenes SCAMPI</h2>
-            <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-              {dictamenCounts.map((d) => (
-                <div key={d.code} className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
-                  <div className="flex items-center gap-2">
-                    <span className={`h-2.5 w-2.5 rounded-full ${d.color}`} />
-                    <span className="text-xs font-semibold text-slate-700">{d.code}</span>
-                  </div>
-                  <p className="mt-2 text-2xl font-bold text-slate-900">{d.count}</p>
-                  <p className="mt-1 text-[11px] text-slate-500">{d.label}</p>
-                </div>
-              ))}
+      <div className="rounded-3xl border border-slate-200 bg-white p-6">
+        <h2 className="mb-4 text-sm font-semibold text-slate-800">Distribución de Dictámenes SCAMPI</h2>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+          {dictamenCounts.map((d) => (
+            <div key={d.code} className="rounded-2xl border border-slate-200 bg-slate-50/40 p-4">
+              <div className="flex items-center gap-2">
+                <span className={`h-2.5 w-2.5 rounded-full ${d.color}`} />
+                <span className="text-xs font-semibold text-slate-700">{d.code}</span>
+              </div>
+              <p className="mt-2 text-2xl font-bold text-slate-900">{d.count}</p>
+              <p className="mt-1 text-[11px] text-slate-500">{d.label}</p>
             </div>
-          </div>
-          <p className="text-xs text-slate-500">
-            Total de criterios activos en el modelo de referencia: {criterios.length}
-          </p>
-        </>
-      )}
+          ))}
+        </div>
+      </div>
+      <p className="text-xs text-slate-500">
+        Total de criterios activos en el modelo de referencia: {criterios.length}
+      </p>
 
-      {subView === "clientes" && tipoUsuario === "Administrador" && (
-        <DashboardClientes clientes={clientes} programas={programas} unidadesOrganizacionales={unidadesOrganizacionales} />
-      )}
-
-      {subView === "programas-cliente" && tipoUsuario === "Administrador" && (
-        <DashboardProgramasPorCliente clientes={clientes} programas={programas} evaluaciones={evaluaciones} />
-      )}
-
-      {subView === "usabilidad" && tipoUsuario === "Administrador" && (
-        <DashboardUsabilidad
-          criterios={criterios}
-          evaluaciones={evaluaciones}
-          evidencias={evidencias}
-          usuarios={usuarios}
-        />
-      )}
     </div>
   );
 }
@@ -714,6 +687,82 @@ function DashboardUsabilidad({ criterios, evaluaciones, evidencias, usuarios }) 
   );
 }
 
+function ModulosBreakdownView({
+  modulos,
+  categorias,
+  criterios,
+  evaluaciones,
+  tipoComponenteFiltro,
+  setTipoComponenteFiltro,
+}) {
+  const tabs = ["Todos", ...TIPOS_COMPONENTE.map((t) => t.value)];
+
+  const criteriosFiltrados =
+    tipoComponenteFiltro === "Todos" ? criterios : criterios.filter((c) => c.tipo_componente === tipoComponenteFiltro);
+
+  const conteoPorModulo = modulos.map((mod) => {
+    const categoria = categorias.find((c) => c.id === mod.categoria_id);
+    const items = criteriosFiltrados.filter((c) => c.modulo_id === mod.id);
+    const evaluados = items.filter((c) => evaluaciones.some((e) => e.criterio_id === c.id)).length;
+    return { modulo: mod, categoria, total: items.length, evaluados };
+  });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2 overflow-x-auto">
+        {tabs.map((t) => {
+          const label = t === "Todos" ? "Todos" : TIPOS_COMPONENTE.find((tc) => tc.value === t)?.label || t;
+          return (
+            <button
+              key={t}
+              onClick={() => setTipoComponenteFiltro(t)}
+              className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-semibold transition ${
+                tipoComponenteFiltro === t ? "bg-orange-500 text-slate-950" : "border border-slate-300 text-slate-600"
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="overflow-hidden rounded-3xl border border-slate-200">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-white text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="px-5 py-3">Categoría</th>
+              <th className="px-5 py-3">Módulo</th>
+              <th className="px-5 py-3">Items ({tipoComponenteFiltro === "Todos" ? "todos" : TIPOS_COMPONENTE.find((t) => t.value === tipoComponenteFiltro)?.label})</th>
+              <th className="px-5 py-3">Evaluados</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-200 bg-slate-50">
+            {conteoPorModulo
+              .filter((row) => row.total > 0)
+              .map((row) => (
+                <tr key={row.modulo.id}>
+                  <td className="px-5 py-3 text-xs text-slate-500">{row.categoria?.nombre || "—"}</td>
+                  <td className="px-5 py-3 font-medium text-slate-900">{row.modulo.nombre}</td>
+                  <td className="px-5 py-3 text-slate-700">{row.total}</td>
+                  <td className="px-5 py-3 text-slate-700">
+                    {row.evaluados} / {row.total}
+                  </td>
+                </tr>
+              ))}
+            {conteoPorModulo.filter((row) => row.total > 0).length === 0 && (
+              <tr>
+                <td colSpan={4} className="px-6 py-10 text-center text-slate-400">
+                  No hay items de este tipo en el catálogo todavía.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    B. PROGRAMAS DE MEJORA (AUDITORÍAS)
    ────────────────────────────────────────────────────────────────────────── */
@@ -734,10 +783,42 @@ function ProgramasView({
   modalCriterio,
   setModalCriterio,
   readOnly,
+  subView,
+  usuarios,
+  unidadesOrganizacionales,
+  tipoUsuario,
 }) {
   const [nombre, setNombre] = useState("");
   const [clienteId, setClienteId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [tipoComponenteFiltro, setTipoComponenteFiltro] = useState("Todos");
+
+  if (subView === "clientes" && tipoUsuario === "Administrador") {
+    return <DashboardClientes clientes={clientes} programas={programas} unidadesOrganizacionales={unidadesOrganizacionales} />;
+  }
+
+  if (subView === "programas-cliente" && tipoUsuario === "Administrador") {
+    return <DashboardProgramasPorCliente clientes={clientes} programas={programas} evaluaciones={evaluaciones} />;
+  }
+
+  if (subView === "usabilidad" && tipoUsuario === "Administrador") {
+    return (
+      <DashboardUsabilidad criterios={criterios} evaluaciones={evaluaciones} evidencias={evidencias} usuarios={usuarios} />
+    );
+  }
+
+  if (subView === "modulos" && tipoUsuario === "Administrador") {
+    return (
+      <ModulosBreakdownView
+        modulos={modulos}
+        categorias={categorias}
+        criterios={criterios}
+        evaluaciones={evaluaciones}
+        tipoComponenteFiltro={tipoComponenteFiltro}
+        setTipoComponenteFiltro={setTipoComponenteFiltro}
+      />
+    );
+  }
 
   const handleCreate = async (e) => {
     e.preventDefault();
