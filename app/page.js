@@ -578,37 +578,44 @@ function Dashboard({
 }
 
 function DashboardClientes({ clientes, programas, unidadesOrganizacionales }) {
+  const ESTATUS_PROGRAMA = ["Planeado", "En Proceso", "Terminado", "Cancelado"];
+
+  if (clientes.length === 0) {
+    return (
+      <div className="rounded-3xl border border-slate-200 bg-white p-10 text-center text-slate-400">
+        Sin clientes registrados.
+      </div>
+    );
+  }
+
   return (
-    <div className="overflow-hidden rounded-3xl border border-slate-200">
-      <table className="w-full text-left text-sm">
-        <thead className="bg-white text-xs uppercase tracking-wider text-slate-500">
-          <tr>
-            <th className="px-5 py-3">Cliente</th>
-            <th className="px-5 py-3">Programas de Mejora</th>
-            <th className="px-5 py-3">Unidades Organizacionales</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-200 bg-slate-50">
-          {clientes.map((c) => (
-            <tr key={c.id}>
-              <td className="px-5 py-3 font-medium text-slate-900">{c.nombre}</td>
-              <td className="px-5 py-3 text-slate-600">
-                {programas.filter((p) => p.cliente_id === c.id).length}
-              </td>
-              <td className="px-5 py-3 text-slate-600">
-                {unidadesOrganizacionales.filter((ou) => ou.cliente_id === c.id).length}
-              </td>
-            </tr>
-          ))}
-          {clientes.length === 0 && (
-            <tr>
-              <td colSpan={3} className="px-6 py-10 text-center text-slate-400">
-                Sin clientes registrados.
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {clientes.map((c) => {
+        const programasCliente = programas.filter((p) => p.cliente_id === c.id);
+        const ousCliente = unidadesOrganizacionales.filter((ou) => ou.cliente_id === c.id);
+        return (
+          <div key={c.id} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/5">
+            <p className="text-sm font-semibold text-slate-900">{c.nombre}</p>
+            <div className="mt-3 flex items-baseline gap-2">
+              <span className="text-3xl font-bold text-orange-400">{programasCliente.length}</span>
+              <span className="text-xs text-slate-500">programas de mejora</span>
+            </div>
+            <div className="mt-3 space-y-1 border-t border-slate-100 pt-3">
+              {ESTATUS_PROGRAMA.map((est) => (
+                <div key={est} className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>{est}</span>
+                  <span className="font-semibold text-slate-700">
+                    {programasCliente.filter((p) => p.estatus === est).length}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
+              {ousCliente.length} unidad{ousCliente.length === 1 ? "" : "es"} organizacional{ousCliente.length === 1 ? "" : "es"}
+            </p>
+          </div>
+        );
+      })}
     </div>
   );
 }
