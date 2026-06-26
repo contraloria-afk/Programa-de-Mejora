@@ -41,6 +41,7 @@ function scampiMeta(code) {
 
 export default function Page() {
   const [activeView, setActiveView] = useState("dashboard");
+  const [dashboardSubView, setDashboardSubView] = useState("general");
   const [usuarioActivoId, setUsuarioActivoId] = useState("");
   const [tipoUsuarioDemo, setTipoUsuarioDemo] = useState("Administrador"); // fallback sin login real
   const [loading, setLoading] = useState(true);
@@ -119,7 +120,13 @@ export default function Page() {
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
-      <Sidebar activeView={activeView} setActiveView={setActiveView} tipoUsuario={tipoUsuarioDemo} />
+      <Sidebar
+        activeView={activeView}
+        setActiveView={setActiveView}
+        tipoUsuario={tipoUsuarioDemo}
+        dashboardSubView={dashboardSubView}
+        setDashboardSubView={setDashboardSubView}
+      />
 
       <main className="flex-1 overflow-y-auto">
         <TopBar
@@ -155,6 +162,7 @@ export default function Page() {
               unidadesOrganizacionales={unidadesOrganizacionales}
               tipoUsuario={tipoUsuarioDemo}
               usuarioActivoId={usuarioActivoId}
+              subView={dashboardSubView}
             />
           )}
 
@@ -233,7 +241,7 @@ export default function Page() {
    SIDEBAR
    ────────────────────────────────────────────────────────────────────────── */
 
-function Sidebar({ activeView, setActiveView, tipoUsuario }) {
+function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, setDashboardSubView }) {
   const itemsBase = [
     { id: "dashboard", label: "Inicio", icon: HomeIcon, roles: ["Administrador", "Consultor"] },
     { id: "programas", label: "Programas de Mejora", icon: ClipboardIcon, roles: ["Administrador", "Consultor", "Cliente"] },
@@ -242,8 +250,15 @@ function Sidebar({ activeView, setActiveView, tipoUsuario }) {
   ];
   const items = itemsBase.filter((item) => item.roles.includes(tipoUsuario));
 
+  const dashboardSubItems = [
+    { id: "general", label: "General" },
+    { id: "clientes", label: "Dashboard de Clientes" },
+    { id: "programas-cliente", label: "Programas por Cliente" },
+    { id: "usabilidad", label: "Usabilidad del Sistema" },
+  ].filter((s) => s.id === "general" || tipoUsuario === "Administrador");
+
   return (
-    <aside className="flex w-64 flex-col border-r border-slate-200 bg-white px-4 py-6">
+    <aside className="flex w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 overflow-y-auto">
       <div className="mb-10 flex items-center gap-3 px-2">
         <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500 font-black text-slate-950">
           A1
@@ -262,19 +277,39 @@ function Sidebar({ activeView, setActiveView, tipoUsuario }) {
         {items.map((item) => {
           const Icon = item.icon;
           const active = activeView === item.id;
+          const isDashboard = item.id === "dashboard";
           return (
-            <button
-              key={item.id}
-              onClick={() => setActiveView(item.id)}
-              className={`flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
-                active
-                  ? "bg-orange-500 text-slate-950 shadow-lg shadow-orange-500/20"
-                  : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {item.label}
-            </button>
+            <div key={item.id}>
+              <button
+                onClick={() => setActiveView(item.id)}
+                className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
+                  active
+                    ? "bg-orange-500 text-slate-950 shadow-lg shadow-orange-500/20"
+                    : "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </button>
+
+              {isDashboard && active && (
+                <div className="ml-3 mt-1 flex flex-col gap-0.5 border-l border-slate-200 pl-3">
+                  {dashboardSubItems.map((sub) => (
+                    <button
+                      key={sub.id}
+                      onClick={() => setDashboardSubView(sub.id)}
+                      className={`rounded-xl px-3 py-2 text-left text-xs font-medium transition ${
+                        dashboardSubView === sub.id
+                          ? "bg-orange-100 text-orange-700"
+                          : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                      }`}
+                    >
+                      {sub.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
@@ -359,9 +394,8 @@ function Dashboard({
   unidadesOrganizacionales,
   tipoUsuario,
   usuarioActivoId,
+  subView,
 }) {
-  const [subTab, setSubTab] = useState("general");
-
   const programasEjecutados = programas.filter((p) => p.estatus !== "Planificado").length;
   const usuariosActivos = usuarios.length;
   const misAsignaciones = usuarioActivoId
@@ -385,13 +419,6 @@ function Dashboard({
     count: evaluaciones.filter((e) => e.status_scampi === lvl.code).length,
   }));
 
-  const subTabs = [
-    { id: "general", label: "General" },
-    { id: "clientes", label: "Dashboard de Clientes" },
-    { id: "programas-cliente", label: "Programas por Cliente" },
-    { id: "usabilidad", label: "Usabilidad del Sistema" },
-  ];
-
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -403,23 +430,7 @@ function Dashboard({
         ))}
       </div>
 
-      {tipoUsuario === "Administrador" && (
-        <div className="flex gap-2 overflow-x-auto">
-          {subTabs.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setSubTab(t.id)}
-              className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-semibold transition ${
-                subTab === t.id ? "bg-orange-500 text-slate-950" : "border border-slate-300 text-slate-600"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {subTab === "general" && (
+      {subView === "general" && (
         <>
           <div className="rounded-3xl border border-slate-200 bg-white p-6">
             <h2 className="mb-4 text-sm font-semibold text-slate-800">Distribución de Dictámenes SCAMPI</h2>
@@ -442,15 +453,15 @@ function Dashboard({
         </>
       )}
 
-      {subTab === "clientes" && tipoUsuario === "Administrador" && (
+      {subView === "clientes" && tipoUsuario === "Administrador" && (
         <DashboardClientes clientes={clientes} programas={programas} unidadesOrganizacionales={unidadesOrganizacionales} />
       )}
 
-      {subTab === "programas-cliente" && tipoUsuario === "Administrador" && (
+      {subView === "programas-cliente" && tipoUsuario === "Administrador" && (
         <DashboardProgramasPorCliente clientes={clientes} programas={programas} evaluaciones={evaluaciones} />
       )}
 
-      {subTab === "usabilidad" && tipoUsuario === "Administrador" && (
+      {subView === "usabilidad" && tipoUsuario === "Administrador" && (
         <DashboardUsabilidad
           criterios={criterios}
           evaluaciones={evaluaciones}
