@@ -55,6 +55,7 @@ export default function Page() {
   const [programas, setProgramas] = useState([]);
   const [evaluaciones, setEvaluaciones] = useState([]);
   const [evidencias, setEvidencias] = useState([]);
+  const [soporte, setSoporte] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [usuarios, setUsuarios] = useState([]);
   const [unidadesOrganizacionales, setUnidadesOrganizacionales] = useState([]);
@@ -102,6 +103,7 @@ export default function Page() {
         { data: userData, error: userErr },
         { data: ouData, error: ouErr },
         { data: eviData, error: eviErr },
+        { data: supData, error: supErr },
       ] = await Promise.all([
         supabase.from("categorias").select("*").order("nombre"),
         supabase.from("modulos").select("*").order("nombre"),
@@ -112,9 +114,10 @@ export default function Page() {
         supabase.from("usuarios").select("*").order("nombre"),
         supabase.from("unidades_organizacionales").select("*").order("nombre"),
         supabase.from("evidencias").select("*"),
+        supabase.from("soporte").select("*").order("created_at", { ascending: false }),
       ]);
 
-      const firstError = catErr || modErr || critErr || progErr || evalErr || cliErr || userErr || ouErr || eviErr;
+      const firstError = catErr || modErr || critErr || progErr || evalErr || cliErr || userErr || ouErr || eviErr || supErr;
       if (firstError) throw firstError;
 
       setCategorias(catData || []);
@@ -123,6 +126,7 @@ export default function Page() {
       setProgramas(progData || []);
       setEvaluaciones(evalData || []);
       setEvidencias(eviData || []);
+      setSoporte(supData || []);
       setClientes(cliData || []);
       setUsuarios(userData || []);
       setUnidadesOrganizacionales(ouData || []);
@@ -188,6 +192,7 @@ export default function Page() {
               clientes={clientes}
               usuarios={usuarios}
               evidencias={evidencias}
+              soporte={soporte}
               unidadesOrganizacionales={unidadesOrganizacionales}
               tipoUsuario={tipoUsuarioDemo}
               usuarioActivoId={usuarioActivoId}
@@ -484,28 +489,28 @@ function Dashboard({
   clientes,
   usuarios,
   evidencias,
+  soporte,
   unidadesOrganizacionales,
   tipoUsuario,
   usuarioActivoId,
   subView,
 }) {
-  const programasEjecutados = programas.filter((p) => p.estatus !== "Planificado").length;
+  const ESTATUS_PROGRAMA = ["Planeado", "En Proceso", "Terminado", "Cancelado"];
+  const programasPorEstatus = ESTATUS_PROGRAMA.map((est) => ({
+    estatus: est,
+    count: programas.filter((p) => p.estatus === est).length,
+  }));
+
   const usuariosActivos = usuarios.length;
+
   const misAsignaciones = usuarioActivoId
     ? evaluaciones.filter((e) => e.usuario_id === usuarioActivoId).length +
       evidencias.filter((e) => e.usuario_id === usuarioActivoId).length
     : evaluaciones.filter((e) => e.status_instanciacion && e.status_instanciacion !== "Not Yet Reviewed").length;
 
-  const kpis = [
-    { label: "Programas de Mejora Ejecutados", value: programasEjecutados, accent: "text-orange-400" },
-    {
-      label: usuarioActivoId ? "Mis Asignaciones" : "Mis Asignaciones (sin usuario activo)",
-      value: misAsignaciones,
-      accent: "text-sky-400",
-    },
-    { label: "Usuarios Activos", value: usuariosActivos, accent: "text-emerald-400" },
-    { label: "Clientes", value: clientes.length, accent: "text-purple-400" },
-  ];
+  const clientesConProgramas = new Set(programas.filter((p) => p.cliente_id).map((p) => p.cliente_id)).size;
+
+  const reportesSoporte = soporte.length;
 
   const dictamenCounts = SCAMPI_LEVELS.map((lvl) => ({
     ...lvl,
@@ -514,13 +519,46 @@ function Dashboard({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-        {kpis.map((k) => (
-          <div key={k.label} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20">
-            <p className="text-xs uppercase tracking-wider text-slate-500">{k.label}</p>
-            <p className={`mt-3 text-4xl font-bold ${k.accent}`}>{k.value}</p>
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-5">
+        {/* Tarjeta 1: Programas de Mejora por estatus */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20 sm:col-span-2 lg:col-span-1">
+          <p className="text-xs uppercase tracking-wider text-slate-500">Programas de Mejora</p>
+          <p className="mt-2 text-3xl font-bold text-orange-400">{programas.length}</p>
+          <div className="mt-3 space-y-1">
+            {programasPorEstatus.map((p) => (
+              <div key={p.estatus} className="flex items-center justify-between text-[11px] text-slate-500">
+                <span>{p.estatus}</span>
+                <span className="font-semibold text-slate-700">{p.count}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Tarjeta 2: Mis Asignaciones */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20">
+          <p className="text-xs uppercase tracking-wider text-slate-500">
+            {usuarioActivoId ? "Mis Asignaciones" : "Mis Asignaciones (sin usuario activo)"}
+          </p>
+          <p className="mt-3 text-4xl font-bold text-sky-400">{misAsignaciones}</p>
+        </div>
+
+        {/* Tarjeta 3: Usuarios Activos */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20">
+          <p className="text-xs uppercase tracking-wider text-slate-500">Usuarios Activos</p>
+          <p className="mt-3 text-4xl font-bold text-emerald-400">{usuariosActivos}</p>
+        </div>
+
+        {/* Tarjeta 4: Clientes con Programas de Mejora */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20">
+          <p className="text-xs uppercase tracking-wider text-slate-500">Clientes con Programas</p>
+          <p className="mt-3 text-4xl font-bold text-purple-400">{clientesConProgramas}</p>
+        </div>
+
+        {/* Tarjeta 5: Reportes de Soporte */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/20">
+          <p className="text-xs uppercase tracking-wider text-slate-500">Reportes de Soporte</p>
+          <p className="mt-3 text-4xl font-bold text-rose-400">{reportesSoporte}</p>
+        </div>
       </div>
 
       {subView === "general" && (
@@ -632,7 +670,7 @@ function DashboardProgramasPorCliente({ clientes, programas, evaluaciones }) {
             {programasCliente.map((p) => (
               <tr key={p.id}>
                 <td className="px-5 py-3 font-medium text-slate-900">{p.nombre}</td>
-                <td className="px-5 py-3 text-slate-600">{p.estatus || "Planificado"}</td>
+                <td className="px-5 py-3 text-slate-600">{p.estatus || "Planeado"}</td>
                 <td className="px-5 py-3 text-slate-600">
                   {evaluaciones.filter((e) => e.programa_id === p.id).length}
                 </td>
@@ -707,7 +745,7 @@ function ProgramasView({
     setSaving(true);
     const { data, error } = await supabase
       .from("programas_mejora")
-      .insert([{ nombre, cliente_id: clienteId || null, estatus: "Planificado" }])
+      .insert([{ nombre, cliente_id: clienteId || null, estatus: "Planeado" }])
       .select();
     setSaving(false);
     if (error) {
@@ -791,7 +829,7 @@ function ProgramasView({
                   <td className="px-6 py-4 text-slate-700">{cliente?.nombre || "—"}</td>
                   <td className="px-6 py-4">
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
-                      {p.estatus || "Planificado"}
+                      {p.estatus || "Planeado"}
                     </span>
                   </td>
                   <td className="px-6 py-4 text-right">
