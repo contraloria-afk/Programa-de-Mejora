@@ -360,12 +360,11 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, programasSubView, set
   const items = itemsBase.filter((item) => item.roles.includes(tipoUsuario));
 
   const programasSubItems = [
-    { id: "resumen", label: "Resumen / Auditorías" },
     { id: "clientes", label: "Dashboard de Clientes" },
     { id: "programas-cliente", label: "Programas de Mejora por Cliente" },
     { id: "usabilidad", label: "Usabilidad del Sistema" },
     { id: "modulos", label: "Módulos" },
-  ].filter((s) => s.id === "resumen" || tipoUsuario === "Administrador");
+  ].filter(() => tipoUsuario === "Administrador");
 
   return (
     <aside className="flex w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 overflow-y-auto">
@@ -795,10 +794,8 @@ function ProgramasView({
   unidadesOrganizacionales,
   tipoUsuario,
 }) {
-  const [nombre, setNombre] = useState("");
-  const [clienteId, setClienteId] = useState("");
-  const [saving, setSaving] = useState(false);
   const [tipoComponenteFiltro, setTipoComponenteFiltro] = useState("Todos");
+  const [showNuevoPrograma, setShowNuevoPrograma] = useState(false);
 
   if (subView === "clientes" && tipoUsuario === "Administrador") {
     return <DashboardClientes clientes={clientes} programas={programas} unidadesOrganizacionales={unidadesOrganizacionales} />;
@@ -827,24 +824,6 @@ function ProgramasView({
     );
   }
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!nombre.trim()) return;
-    setSaving(true);
-    const { data, error } = await supabase
-      .from("programas_mejora")
-      .insert([{ nombre, cliente_id: clienteId || null, estatus: "Planeado" }])
-      .select();
-    setSaving(false);
-    if (error) {
-      console.error(error);
-      return;
-    }
-    setProgramas((prev) => [data[0], ...prev]);
-    setNombre("");
-    setClienteId("");
-  };
-
   if (activePrograma) {
     return (
       <MatrizScampi
@@ -866,80 +845,153 @@ function ProgramasView({
   return (
     <div className="space-y-6">
       {!readOnly && (
-        <form
-          onSubmit={handleCreate}
-          className="grid gap-4 rounded-3xl border border-slate-200 bg-white p-6 sm:grid-cols-[2fr_2fr_auto]"
-        >
-          <input
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder="Nombre del programa"
-            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-          />
-          <select
-            value={clienteId}
-            onChange={(e) => setClienteId(e.target.value)}
-            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
-          >
-            <option value="">Empresa / Cliente</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
-            ))}
-          </select>
+        <div className="flex justify-end">
           <button
-            type="submit"
+            onClick={() => setShowNuevoPrograma(true)}
+            className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-orange-400"
+          >
+            + Nuevo Programa de Mejora
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {programas.map((p) => {
+          const cliente = clientes.find((c) => c.id === p.cliente_id);
+          const estatusMeta = {
+            Planeado: "bg-slate-100 text-slate-700",
+            "En Proceso": "bg-amber-100 text-amber-700",
+            Terminado: "bg-emerald-100 text-emerald-700",
+            Cancelado: "bg-rose-100 text-rose-700",
+          };
+          return (
+            <div
+              key={p.id}
+              className="flex flex-col justify-between rounded-3xl border border-slate-200 bg-white p-6 shadow-xl shadow-black/5"
+            >
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-orange-500">
+                  {cliente?.nombre || "Sin cliente"}
+                </p>
+                <h3 className="mt-1 text-base font-semibold text-slate-900">{p.nombre}</h3>
+                <span
+                  className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-medium ${
+                    estatusMeta[p.estatus] || "bg-slate-100 text-slate-700"
+                  }`}
+                >
+                  {p.estatus || "Planeado"}
+                </span>
+              </div>
+              <button
+                onClick={() => setActivePrograma(p)}
+                className="mt-5 rounded-xl bg-orange-500/10 px-4 py-2 text-xs font-semibold text-orange-500 transition hover:bg-orange-500 hover:text-slate-950"
+              >
+                {readOnly ? "Ver detalle" : "EJECUTAR AUDITORÍA"}
+              </button>
+            </div>
+          );
+        })}
+
+        {programas.length === 0 && (
+          <div className="col-span-full rounded-3xl border border-slate-200 bg-white p-10 text-center text-slate-400">
+            Aún no hay programas de mejora registrados.
+          </div>
+        )}
+      </div>
+
+      {showNuevoPrograma && (
+        <NuevoProgramaModal
+          clientes={clientes}
+          onClose={() => setShowNuevoPrograma(false)}
+          onCreated={(nuevo) => {
+            setProgramas((prev) => [nuevo, ...prev]);
+            setShowNuevoPrograma(false);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function NuevoProgramaModal({ clientes, onClose, onCreated }) {
+  const [nombre, setNombre] = useState("");
+  const [clienteId, setClienteId] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleGenerar = async () => {
+    if (!nombre.trim()) {
+      setError("El nombre del programa es obligatorio.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    const { data, error: err } = await supabase
+      .from("programas_mejora")
+      .insert([{ nombre, cliente_id: clienteId || null, estatus: "Planeado" }])
+      .select();
+    setSaving(false);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    onCreated(data[0]);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
+        <div className="mb-6 flex items-start justify-between">
+          <h3 className="text-lg font-semibold text-slate-900">Nuevo Programa de Mejora</h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Nombre del programa</label>
+            <input
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Ej: Auditoría ERP 2026 - Sucursal Norte"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">Empresa / Cliente</label>
+            <select
+              value={clienteId}
+              onChange={(e) => setClienteId(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+            >
+              <option value="">Selecciona un cliente</option>
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</p>}
+        </div>
+
+        <div className="mt-7 flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm text-slate-700 hover:border-slate-500"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={handleGenerar}
             disabled={saving}
             className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-orange-400 disabled:opacity-50"
           >
-            {saving ? "Guardando…" : "Crear Programa"}
+            {saving ? "Generando…" : "Generar Programa"}
           </button>
-        </form>
-      )}
-
-      <div className="overflow-hidden rounded-3xl border border-slate-200">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-white text-xs uppercase tracking-wider text-slate-500">
-            <tr>
-              <th className="px-6 py-4">Programa</th>
-              <th className="px-6 py-4">Cliente</th>
-              <th className="px-6 py-4">Estatus</th>
-              <th className="px-6 py-4 text-right">Acción</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-200 bg-slate-50">
-            {programas.map((p) => {
-              const cliente = clientes.find((c) => c.id === p.cliente_id);
-              return (
-                <tr key={p.id} className="transition hover:bg-slate-100/40">
-                  <td className="px-6 py-4 font-medium text-slate-900">{p.nombre}</td>
-                  <td className="px-6 py-4 text-slate-700">{cliente?.nombre || "—"}</td>
-                  <td className="px-6 py-4">
-                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700">
-                      {p.estatus || "Planeado"}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button
-                      onClick={() => setActivePrograma(p)}
-                      className="rounded-xl bg-orange-500/10 px-4 py-2 text-xs font-semibold text-orange-400 transition hover:bg-orange-500 hover:text-slate-950"
-                    >
-                      EJECUTAR AUDITORÍA
-                    </button>
-                  </td>
-                </tr>
-              );
-            })}
-            {programas.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-6 py-10 text-center text-slate-500">
-                  Aún no hay programas de mejora registrados.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+        </div>
       </div>
     </div>
   );
