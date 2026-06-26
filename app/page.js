@@ -40,10 +40,12 @@ function scampiMeta(code) {
    ────────────────────────────────────────────────────────────────────────── */
 
 export default function Page() {
+  const [session, setSession] = useState(undefined); // undefined = verificando, null = sin sesión
+  const [authError, setAuthError] = useState(null);
+  const [authLoading, setAuthLoading] = useState(false);
+
   const [activeView, setActiveView] = useState("dashboard");
   const [dashboardSubView, setDashboardSubView] = useState("general");
-  const [usuarioActivoId, setUsuarioActivoId] = useState("");
-  const [tipoUsuarioDemo, setTipoUsuarioDemo] = useState("Administrador"); // fallback sin login real
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
 
@@ -59,6 +61,32 @@ export default function Page() {
 
   const [activePrograma, setActivePrograma] = useState(null);
   const [modalCriterio, setModalCriterio] = useState(null);
+
+  // ── Autenticación ──────────────────────────────────────────────
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, sess) => {
+      setSession(sess);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleLogin = async (email, password) => {
+    setAuthLoading(true);
+    setAuthError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setAuthLoading(false);
+    if (error) setAuthError(error.message);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // Perfil de negocio (tabla usuarios) vinculado por email al usuario autenticado
+  const perfilActivo = usuarios.find((u) => u.email === session?.user?.email);
+  const tipoUsuarioDemo = perfilActivo?.tipo_usuario || "Consultor";
+  const usuarioActivoId = perfilActivo?.id || "";
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -107,8 +135,8 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    if (session) fetchAll();
+  }, [session, fetchAll]);
 
   const ousForActivePrograma = useMemo(() => {
     if (!activePrograma) return DEFAULT_OUS;
@@ -117,6 +145,19 @@ export default function Page() {
       .map((ou) => ou.nombre);
     return filtered.length ? filtered : DEFAULT_OUS;
   }, [activePrograma, unidadesOrganizacionales]);
+
+  // ── Render condicional según estado de sesión ──────────────────
+  if (session === undefined) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50">
+        <p className="text-sm text-slate-400">Verificando sesión…</p>
+      </div>
+    );
+  }
+
+  if (session === null) {
+    return <LoginScreen onLogin={handleLogin} loading={authLoading} error={authError} />;
+  }
 
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900">
@@ -129,19 +170,7 @@ export default function Page() {
       />
 
       <main className="flex-1 overflow-y-auto">
-        <TopBar
-          loading={loading}
-          onRefresh={fetchAll}
-          usuarios={usuarios}
-          usuarioActivoId={usuarioActivoId}
-          setUsuarioActivoId={setUsuarioActivoId}
-          tipoUsuarioDemo={tipoUsuarioDemo}
-          setTipoUsuarioDemo={(t) => {
-            setTipoUsuarioDemo(t);
-            if (t === "Cliente") setActiveView("programas");
-            else if (t === "Consultor" && activeView === "configuracion") setActiveView("dashboard");
-          }}
-        />
+        <TopBar loading={loading} onRefresh={fetchAll} session={session} perfilActivo={perfilActivo} onLogout={handleLogout} />
 
         {errorMsg && (
           <div className="mx-8 mt-4 rounded-2xl border border-rose-500/30 bg-rose-500/10 px-5 py-3 text-sm text-rose-300">
@@ -241,11 +270,83 @@ export default function Page() {
    SIDEBAR
    ────────────────────────────────────────────────────────────────────────── */
 
+/* ──────────────────────────────────────────────────────────────────────────
+   LOGIN
+   ────────────────────────────────────────────────────────────────────────── */
+
+function LoginScreen({ onLogin, loading, error }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!email.trim() || !password) return;
+    onLogin(email.trim(), password);
+  };
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+      <div className="w-full max-w-sm rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
+        <div className="mb-6 flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-500 font-black text-slate-950">
+            A1
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900">ADVAN ONE</p>
+            <p className="text-[11px] text-slate-500">Appraisal Assistant</p>
+          </div>
+        </div>
+
+        <h1 className="mb-1 text-lg font-semibold text-slate-900">Iniciar sesión</h1>
+        <p className="mb-6 text-xs text-slate-500">Ingresa con el correo registrado por tu administrador.</p>
+
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Correo electrónico</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="nombre@empresa.com"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+              autoComplete="email"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-slate-500">Contraseña</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+              autoComplete="current-password"
+            />
+          </div>
+
+          {error && (
+            <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">
+              {error === "Invalid login credentials" ? "Correo o contraseña incorrectos." : error}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-orange-400 disabled:opacity-50"
+          >
+            {loading ? "Verificando…" : "Entrar"}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, setDashboardSubView }) {
   const itemsBase = [
-    { id: "dashboard", label: "Inicio", icon: HomeIcon, roles: ["Administrador", "Consultor"] },
+    { id: "dashboard", label: "Dashboard", icon: HomeIcon, roles: ["Administrador", "Consultor"] },
     { id: "programas", label: "Programas de Mejora", icon: ClipboardIcon, roles: ["Administrador", "Consultor", "Cliente"] },
-    { id: "reportes", label: "Reportes", icon: ChartIcon, roles: ["Administrador", "Consultor"] },
     { id: "configuracion", label: "Configuración", icon: GearIcon, roles: ["Administrador", "Consultor"] },
   ];
   const items = itemsBase.filter((item) => item.roles.includes(tipoUsuario));
@@ -255,7 +356,8 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, set
     { id: "clientes", label: "Dashboard de Clientes" },
     { id: "programas-cliente", label: "Programas por Cliente" },
     { id: "usabilidad", label: "Usabilidad del Sistema" },
-  ].filter((s) => s.id === "general" || tipoUsuario === "Administrador");
+    { id: "reportes", label: "Reportes de Auditoría" },
+  ].filter((s) => s.id === "general" || s.id === "reportes" || tipoUsuario === "Administrador");
 
   return (
     <aside className="flex w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 overflow-y-auto">
@@ -276,12 +378,12 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, set
       <nav className="flex flex-1 flex-col gap-1">
         {items.map((item) => {
           const Icon = item.icon;
-          const active = activeView === item.id;
           const isDashboard = item.id === "dashboard";
+          const active = isDashboard ? activeView === "dashboard" || activeView === "reportes" : activeView === item.id;
           return (
             <div key={item.id}>
               <button
-                onClick={() => setActiveView(item.id)}
+                onClick={() => setActiveView(isDashboard ? "dashboard" : item.id)}
                 className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
                   active
                     ? "bg-orange-500 text-slate-950 shadow-lg shadow-orange-500/20"
@@ -294,19 +396,30 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, set
 
               {isDashboard && active && (
                 <div className="ml-3 mt-1 flex flex-col gap-0.5 border-l border-slate-200 pl-3">
-                  {dashboardSubItems.map((sub) => (
-                    <button
-                      key={sub.id}
-                      onClick={() => setDashboardSubView(sub.id)}
-                      className={`rounded-xl px-3 py-2 text-left text-xs font-medium transition ${
-                        dashboardSubView === sub.id
-                          ? "bg-orange-100 text-orange-700"
-                          : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
-                      }`}
-                    >
-                      {sub.label}
-                    </button>
-                  ))}
+                  {dashboardSubItems.map((sub) => {
+                    const subActive =
+                      sub.id === "reportes" ? activeView === "reportes" : activeView === "dashboard" && dashboardSubView === sub.id;
+                    return (
+                      <button
+                        key={sub.id}
+                        onClick={() => {
+                          if (sub.id === "reportes") {
+                            setActiveView("reportes");
+                          } else {
+                            setActiveView("dashboard");
+                            setDashboardSubView(sub.id);
+                          }
+                        }}
+                        className={`rounded-xl px-3 py-2 text-left text-xs font-medium transition ${
+                          subActive
+                            ? "bg-orange-100 text-orange-700"
+                            : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+                        }`}
+                      >
+                        {sub.label}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -321,8 +434,7 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, set
   );
 }
 
-function TopBar({ loading, onRefresh, usuarios, usuarioActivoId, setUsuarioActivoId, tipoUsuarioDemo, setTipoUsuarioDemo }) {
-  const usuarioActivo = usuarios.find((u) => u.id === usuarioActivoId);
+function TopBar({ loading, onRefresh, session, perfilActivo, onLogout }) {
   return (
     <header className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-8 py-5">
       <div>
@@ -331,39 +443,16 @@ function TopBar({ loading, onRefresh, usuarios, usuarioActivoId, setUsuarioActiv
       </div>
       <div className="flex items-center gap-3">
         <div className="flex flex-col items-end">
-          <label className="text-[10px] text-slate-400">Vista como (demo, sin login real)</label>
-          <select
-            value={tipoUsuarioDemo}
-            onChange={(e) => setTipoUsuarioDemo(e.target.value)}
-            className="rounded-xl border border-orange-300 bg-orange-50 px-3 py-1.5 text-xs font-semibold text-orange-700 focus:border-orange-500 focus:outline-none"
-          >
-            {TIPOS_USUARIO.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col items-end">
-          <select
-            value={usuarioActivoId}
-            onChange={(e) => setUsuarioActivoId(e.target.value)}
-            className="rounded-xl border border-slate-300 bg-white px-3 py-1.5 text-xs text-slate-700 focus:border-orange-500 focus:outline-none"
-          >
-            <option value="">Sin usuario activo</option>
-            {usuarios.map((u) => (
-              <option key={u.id} value={u.id}>
-                {u.nombre} — {u.rol}
-              </option>
-            ))}
-          </select>
-          {usuarioActivo && (
-            <span
-              className={`mt-1 text-[10px] font-semibold ${
-                usuarioActivo.rol === "Auditor Líder" ? "text-orange-500" : "text-slate-400"
-              }`}
-            >
-              {usuarioActivo.rol === "Auditor Líder" ? "Puede fijar dictamen final" : "Solo captura evidencia"}
+          <span className="text-sm font-semibold text-slate-800">
+            {perfilActivo?.nombre || session?.user?.email}
+          </span>
+          {perfilActivo ? (
+            <span className="text-[11px] text-slate-500">
+              {perfilActivo.tipo_usuario} · {perfilActivo.rol}
+            </span>
+          ) : (
+            <span className="text-[11px] text-amber-600">
+              Sin perfil vinculado — pide al admin que registre este email en Usuarios
             </span>
           )}
         </div>
@@ -373,6 +462,12 @@ function TopBar({ loading, onRefresh, usuarios, usuarioActivoId, setUsuarioActiv
           className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 transition hover:border-orange-500 hover:text-orange-400 disabled:opacity-50"
         >
           {loading ? "Sincronizando…" : "Refrescar datos"}
+        </button>
+        <button
+          onClick={onLogout}
+          className="rounded-xl border border-slate-300 px-4 py-2 text-xs font-medium text-slate-700 transition hover:border-rose-400 hover:text-rose-500"
+        >
+          Cerrar sesión
         </button>
       </div>
     </header>
