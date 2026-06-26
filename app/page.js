@@ -352,12 +352,10 @@ function Sidebar({ activeView, setActiveView, tipoUsuario, dashboardSubView, set
   const items = itemsBase.filter((item) => item.roles.includes(tipoUsuario));
 
   const dashboardSubItems = [
-    { id: "general", label: "General" },
     { id: "clientes", label: "Dashboard de Clientes" },
     { id: "programas-cliente", label: "Programas por Cliente" },
     { id: "usabilidad", label: "Usabilidad del Sistema" },
-    { id: "reportes", label: "Reportes de Auditoría" },
-  ].filter((s) => s.id === "general" || s.id === "reportes" || tipoUsuario === "Administrador");
+  ].filter(() => tipoUsuario === "Administrador");
 
   return (
     <aside className="flex w-64 flex-col border-r border-slate-200 bg-white px-4 py-6 overflow-y-auto">
