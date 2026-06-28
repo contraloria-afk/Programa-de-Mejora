@@ -1898,54 +1898,108 @@ function ConfiguracionView({
   setUsuarios,
   setUnidadesOrganizacionales,
 }) {
-  const [tab, setTab] = useState("modelo");
+  const [seccion, setSeccion] = useState(null);
 
-  const tabs = [
-    { id: "modelo", label: "Modelo de Referencia" },
-    { id: "clientes", label: "Clientes y OUs" },
-    { id: "usuarios", label: "Usuarios y Roles" },
-    { id: "escalas", label: "Escalas SCAMPI" },
+  const tarjetas = [
+    {
+      id: "usuarios",
+      label: "Gestión de Usuarios",
+      desc: "Altas, roles y tipos de acceso del sistema",
+      icon: "👤",
+    },
+    {
+      id: "parametros",
+      label: "Parámetros",
+      desc: "Escalas SCAMPI y reglas generales del modelo",
+      icon: "⚙️",
+    },
+    {
+      id: "catalogos",
+      label: "Catálogos",
+      desc: "Clientes y Unidades Organizacionales",
+      icon: "📋",
+    },
+    {
+      id: "cuenta",
+      label: "Configuración de la Cuenta",
+      desc: "Datos de tu perfil y organización",
+      icon: "🏢",
+    },
+    {
+      id: "sistema",
+      label: "Configuración del Sistema",
+      desc: "Preferencias generales de la plataforma",
+      icon: "🖥️",
+    },
+    {
+      id: "appraisal",
+      label: "Modelo Appraisal",
+      desc: "Categorías, Módulos y Criterios auditables",
+      icon: "📐",
+    },
   ];
 
-  return (
-    <div className="space-y-6">
-      <div className="flex gap-2 overflow-x-auto">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`whitespace-nowrap rounded-xl px-4 py-2 text-xs font-semibold transition ${
-              tab === t.id ? "bg-orange-500 text-slate-950" : "border border-slate-300 text-slate-700"
-            }`}
-          >
-            {t.label}
-          </button>
-        ))}
+  if (seccion) {
+    const tarjeta = tarjetas.find((t) => t.id === seccion);
+    return (
+      <div className="space-y-6">
+        <button onClick={() => setSeccion(null)} className="text-xs text-slate-500 hover:text-orange-500">
+          ← Volver a Configuración
+        </button>
+        <h2 className="text-lg font-semibold text-slate-900">{tarjeta?.label}</h2>
+
+        {seccion === "usuarios" && <UsuariosPanel usuarios={usuarios} setUsuarios={setUsuarios} clientes={clientes} />}
+
+        {seccion === "parametros" && <EscalasPanel />}
+
+        {seccion === "catalogos" && (
+          <ClientesOuPanel
+            clientes={clientes}
+            unidadesOrganizacionales={unidadesOrganizacionales}
+            setClientes={setClientes}
+            setUnidadesOrganizacionales={setUnidadesOrganizacionales}
+          />
+        )}
+
+        {seccion === "cuenta" && <ConfiguracionPlaceholder mensaje="Datos de la cuenta y organización — próximamente." />}
+
+        {seccion === "sistema" && <ConfiguracionPlaceholder mensaje="Preferencias generales del sistema — próximamente." />}
+
+        {seccion === "appraisal" && (
+          <ModeloReferenciaPanel
+            categorias={categorias}
+            modulos={modulos}
+            criterios={criterios}
+            setCategorias={setCategorias}
+            setModulos={setModulos}
+            setCriterios={setCriterios}
+          />
+        )}
       </div>
+    );
+  }
 
-      {tab === "modelo" && (
-        <ModeloReferenciaPanel
-          categorias={categorias}
-          modulos={modulos}
-          criterios={criterios}
-          setCategorias={setCategorias}
-          setModulos={setModulos}
-          setCriterios={setCriterios}
-        />
-      )}
+  return (
+    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      {tarjetas.map((t) => (
+        <button
+          key={t.id}
+          onClick={() => setSeccion(t.id)}
+          className="flex flex-col items-start rounded-3xl border border-slate-200 bg-white p-6 text-left shadow-xl shadow-black/5 transition hover:border-orange-400 hover:shadow-orange-100"
+        >
+          <span className="text-2xl">{t.icon}</span>
+          <h3 className="mt-3 text-sm font-semibold text-slate-900">{t.label}</h3>
+          <p className="mt-1 text-xs text-slate-500">{t.desc}</p>
+        </button>
+      ))}
+    </div>
+  );
+}
 
-      {tab === "clientes" && (
-        <ClientesOuPanel
-          clientes={clientes}
-          unidadesOrganizacionales={unidadesOrganizacionales}
-          setClientes={setClientes}
-          setUnidadesOrganizacionales={setUnidadesOrganizacionales}
-        />
-      )}
-
-      {tab === "usuarios" && <UsuariosPanel usuarios={usuarios} setUsuarios={setUsuarios} clientes={clientes} />}
-
-      {tab === "escalas" && <EscalasPanel />}
+function ConfiguracionPlaceholder({ mensaje }) {
+  return (
+    <div className="rounded-3xl border border-dashed border-slate-300 bg-white p-10 text-center text-sm text-slate-400">
+      {mensaje}
     </div>
   );
 }
