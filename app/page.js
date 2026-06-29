@@ -248,6 +248,7 @@ export default function Page() {
               clientes={clientes}
               usuarios={usuarios}
               unidadesOrganizacionales={unidadesOrganizacionales}
+              programas={programas}
               setCategorias={setCategorias}
               setModulos={setModulos}
               setCriterios={setCriterios}
@@ -1891,6 +1892,7 @@ function ConfiguracionView({
   clientes,
   usuarios,
   unidadesOrganizacionales,
+  programas,
   setCategorias,
   setModulos,
   setCriterios,
@@ -1948,7 +1950,9 @@ function ConfiguracionView({
         </button>
         <h2 className="text-lg font-semibold text-slate-900">{tarjeta?.label}</h2>
 
-        {seccion === "usuarios" && <UsuariosPanel usuarios={usuarios} setUsuarios={setUsuarios} clientes={clientes} />}
+        {seccion === "usuarios" && (
+          <UsuariosPanel usuarios={usuarios} setUsuarios={setUsuarios} clientes={clientes} programas={programas} />
+        )}
 
         {seccion === "parametros" && <EscalasPanel />}
 
@@ -2336,120 +2340,427 @@ function ClientesOuPanel({ clientes, unidadesOrganizacionales, setClientes, setU
   );
 }
 
-function UsuariosPanel({ usuarios, setUsuarios, clientes }) {
+const PERMISOS_DISPONIBLES = [
+  { key: "ver_dashboard", label: "Ver Dashboard" },
+  { key: "gestionar_usuarios", label: "Gestionar Usuarios" },
+  { key: "gestionar_catalogos", label: "Gestionar Catálogos" },
+  { key: "gestionar_clientes", label: "Gestionar Clientes" },
+  { key: "crear_programas", label: "Crear Programas de Mejora" },
+  { key: "ejecutar_auditorias", label: "Ejecutar Auditorías" },
+  { key: "capturar_evidencia", label: "Capturar Evidencia" },
+  { key: "fijar_dictamen", label: "Fijar Dictamen Final" },
+  { key: "ver_reportes", label: "Ver Reportes" },
+  { key: "exportar_reportes", label: "Exportar Reportes" },
+  { key: "gestionar_configuracion", label: "Gestionar Configuración del Sistema" },
+];
+
+function UsuariosPanel({ usuarios, setUsuarios, clientes, programas }) {
+  const [busqueda, setBusqueda] = useState("");
+  const [modalNuevo, setModalNuevo] = useState(false);
+  const [modalPermisos, setModalPermisos] = useState(null); // usuario seleccionado
+  const [modalProyectos, setModalProyectos] = useState(null); // usuario seleccionado
+  const [menuAbierto, setMenuAbierto] = useState(null);
+
+  const usuariosFiltrados = usuarios.filter(
+    (u) =>
+      u.nombre?.toLowerCase().includes(busqueda.toLowerCase()) ||
+      u.email?.toLowerCase().includes(busqueda.toLowerCase())
+  );
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-6">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex gap-2">
+          <button
+            onClick={() => setModalNuevo(true)}
+            className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400"
+          >
+            + Nuevo Usuario
+          </button>
+        </div>
+        <div className="relative">
+          <input
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            placeholder="Buscar usuarios…"
+            className="w-64 rounded-xl border border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-2xl border border-slate-200">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+            <tr>
+              <th className="px-5 py-3">Nombre</th>
+              <th className="px-5 py-3">Email</th>
+              <th className="px-5 py-3">Tipo</th>
+              <th className="px-5 py-3">Rol Auditoría</th>
+              <th className="px-5 py-3">Permisos</th>
+              <th className="px-5 py-3">Proyectos</th>
+              <th className="px-5 py-3 text-right">Acciones</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {usuariosFiltrados.map((u) => (
+              <tr key={u.id} className="hover:bg-slate-50/60">
+                <td className="px-5 py-3 font-medium text-slate-900">
+                  {u.nombre}
+                  {u.tipo_usuario === "Cliente" && u.cliente_id && (
+                    <span className="ml-2 text-[11px] text-slate-400">
+                      ({clientes.find((c) => c.id === u.cliente_id)?.nombre || "—"})
+                    </span>
+                  )}
+                </td>
+                <td className="px-5 py-3 text-slate-500">{u.email || "—"}</td>
+                <td className="px-5 py-3">
+                  <span className="rounded-full bg-orange-100 px-3 py-1 text-[11px] text-orange-700">
+                    {u.tipo_usuario || "Consultor"}
+                  </span>
+                </td>
+                <td className="px-5 py-3">
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] text-slate-700">{u.rol}</span>
+                </td>
+                <td className="px-5 py-3 text-xs text-slate-500">{(u.permisos || []).length} asignados</td>
+                <td className="px-5 py-3 text-xs">
+                  <button
+                    onClick={() => setModalProyectos(u)}
+                    className="text-orange-500 hover:text-orange-600 hover:underline"
+                  >
+                    Ver / Asignar
+                  </button>
+                </td>
+                <td className="relative px-5 py-3 text-right">
+                  <button
+                    onClick={() => setMenuAbierto(menuAbierto === u.id ? null : u.id)}
+                    className="rounded-lg px-2 py-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                  >
+                    ⋮
+                  </button>
+                  {menuAbierto === u.id && (
+                    <div className="absolute right-5 top-10 z-10 w-44 rounded-xl border border-slate-200 bg-white py-1 shadow-xl">
+                      <button
+                        onClick={() => {
+                          setModalPermisos(u);
+                          setMenuAbierto(null);
+                        }}
+                        className="block w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        Gestionar permisos
+                      </button>
+                      <button
+                        onClick={() => {
+                          setModalProyectos(u);
+                          setMenuAbierto(null);
+                        }}
+                        className="block w-full px-4 py-2 text-left text-xs text-slate-700 hover:bg-slate-50"
+                      >
+                        Asociar a proyectos
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {usuariosFiltrados.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-6 py-10 text-center text-slate-400">
+                  Sin usuarios que coincidan con la búsqueda.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {modalNuevo && (
+        <NuevoUsuarioModal clientes={clientes} onClose={() => setModalNuevo(false)} onCreated={(u) => setUsuarios((prev) => [...prev, u])} />
+      )}
+
+      {modalPermisos && (
+        <PermisosModal
+          usuario={modalPermisos}
+          onClose={() => setModalPermisos(null)}
+          onSaved={(permisos) =>
+            setUsuarios((prev) => prev.map((u) => (u.id === modalPermisos.id ? { ...u, permisos } : u)))
+          }
+        />
+      )}
+
+      {modalProyectos && (
+        <ProyectosUsuarioModal usuario={modalProyectos} programas={programas} onClose={() => setModalProyectos(null)} />
+      )}
+    </div>
+  );
+}
+
+function NuevoUsuarioModal({ clientes, onClose, onCreated }) {
   const ROLES = ["Auditor Líder", "Consultor Capturista"];
   const [nombre, setNombre] = useState("");
+  const [email, setEmail] = useState("");
   const [rol, setRol] = useState(ROLES[0]);
   const [tipoUsuario, setTipoUsuario] = useState("Consultor");
   const [clienteId, setClienteId] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
 
-  const handleCreate = async (e) => {
-    e.preventDefault();
-    if (!nombre.trim()) return;
+  const handleCreate = async () => {
+    if (!nombre.trim()) {
+      setError("El nombre es obligatorio.");
+      return;
+    }
     setSaving(true);
-    const { data, error } = await supabase
+    setError(null);
+    const { data, error: err } = await supabase
       .from("usuarios")
       .insert([
         {
           nombre,
+          email: email || null,
           rol,
           tipo_usuario: tipoUsuario,
           cliente_id: tipoUsuario === "Cliente" ? clienteId || null : null,
+          permisos: [],
         },
       ])
       .select();
     setSaving(false);
-    if (error) return console.error(error);
-    setUsuarios((prev) => [...prev, data[0]]);
-    setNombre("");
-    setClienteId("");
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    onCreated(data[0]);
+    onClose();
   };
 
   return (
-    <div className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
-      <h3 className="text-sm font-semibold text-slate-900">Catálogo de Usuarios</h3>
-      <p className="text-xs text-slate-500">
-        El rol <strong className="text-slate-700">Auditor Líder</strong> es el único habilitado para fijar el
-        dictamen final. <strong className="text-slate-700">Consultor Capturista</strong> únicamente registra
-        evidencia. El <strong className="text-slate-700">tipo de usuario</strong> controla qué módulos de
-        navegación ve cada persona.
-      </p>
-      <form onSubmit={handleCreate} className="grid gap-2 sm:grid-cols-2">
-        <input
-          value={nombre}
-          onChange={(e) => setNombre(e.target.value)}
-          placeholder="Nombre del usuario"
-          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-        />
-        <select
-          value={tipoUsuario}
-          onChange={(e) => setTipoUsuario(e.target.value)}
-          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
-        >
-          {TIPOS_USUARIO.map((t) => (
-            <option key={t} value={t}>
-              Tipo: {t}
-            </option>
-          ))}
-        </select>
-        <select
-          value={rol}
-          onChange={(e) => setRol(e.target.value)}
-          className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
-        >
-          {ROLES.map((r) => (
-            <option key={r} value={r}>
-              Rol auditoría: {r}
-            </option>
-          ))}
-        </select>
-        {tipoUsuario === "Cliente" ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
+        <div className="mb-6 flex items-start justify-between">
+          <h3 className="text-lg font-semibold text-slate-900">Nuevo Usuario</h3>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <input
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            placeholder="Nombre completo"
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+          />
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="Email (debe coincidir con su login)"
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+          />
           <select
-            value={clienteId}
-            onChange={(e) => setClienteId(e.target.value)}
-            className="rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+            value={tipoUsuario}
+            onChange={(e) => setTipoUsuario(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
           >
-            <option value="">Vincular a cliente</option>
-            {clientes.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
+            {TIPOS_USUARIO.map((t) => (
+              <option key={t} value={t}>
+                Tipo: {t}
               </option>
             ))}
           </select>
-        ) : (
-          <div />
-        )}
-        <button
-          disabled={saving}
-          className="rounded-xl bg-orange-500 px-5 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50 sm:col-span-2"
-        >
-          Añadir Usuario
-        </button>
-      </form>
-      <ul className="space-y-1.5">
-        {usuarios.map((u) => (
-          <li
-            key={u.id}
-            className="flex items-center justify-between rounded-xl bg-slate-100 px-4 py-2 text-sm text-slate-800"
+          <select
+            value={rol}
+            onChange={(e) => setRol(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
           >
-            <span>
-              {u.nombre}
-              {u.tipo_usuario === "Cliente" && u.cliente_id && (
-                <span className="ml-2 text-[11px] text-slate-400">
-                  ({clientes.find((c) => c.id === u.cliente_id)?.nombre || "—"})
-                </span>
-              )}
-            </span>
-            <span className="flex gap-1.5">
-              <span className="rounded-full bg-orange-100 px-3 py-1 text-[11px] text-orange-700">
-                {u.tipo_usuario || "Consultor"}
-              </span>
-              <span className="rounded-full bg-slate-200 px-3 py-1 text-[11px] text-slate-700">{u.rol}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+            {ROLES.map((r) => (
+              <option key={r} value={r}>
+                Rol auditoría: {r}
+              </option>
+            ))}
+          </select>
+          {tipoUsuario === "Cliente" && (
+            <select
+              value={clienteId}
+              onChange={(e) => setClienteId(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+            >
+              <option value="">Vincular a cliente</option>
+              {clientes.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nombre}
+                </option>
+              ))}
+            </select>
+          )}
+          {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</p>}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button onClick={onClose} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm text-slate-700">
+            Cancelar
+          </button>
+          <button
+            onClick={handleCreate}
+            disabled={saving}
+            className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
+          >
+            {saving ? "Creando…" : "Crear Usuario"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PermisosModal({ usuario, onClose, onSaved }) {
+  const [seleccionados, setSeleccionados] = useState(usuario.permisos || []);
+  const [saving, setSaving] = useState(false);
+
+  const toggle = (key) => {
+    setSeleccionados((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("usuarios").update({ permisos: seleccionados }).eq("id", usuario.id);
+    setSaving(false);
+    if (error) {
+      console.error(error);
+      return;
+    }
+    onSaved(seleccionados);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Permisos</h3>
+            <p className="text-xs text-slate-500">{usuario.nombre}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+            ✕
+          </button>
+        </div>
+
+        <div className="max-h-80 space-y-2 overflow-y-auto">
+          {PERMISOS_DISPONIBLES.map((p) => (
+            <label
+              key={p.key}
+              className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+            >
+              <input
+                type="checkbox"
+                checked={seleccionados.includes(p.key)}
+                onChange={() => toggle(p.key)}
+                className="h-4 w-4 accent-orange-500"
+              />
+              {p.label}
+            </label>
+          ))}
+        </div>
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button onClick={onClose} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm text-slate-700">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
+          >
+            {saving ? "Guardando…" : "Guardar Permisos"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ProyectosUsuarioModal({ usuario, programas, onClose }) {
+  const [seleccionados, setSeleccionados] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    supabase
+      .from("usuario_proyectos")
+      .select("programa_id")
+      .eq("usuario_id", usuario.id)
+      .then(({ data }) => {
+        setSeleccionados((data || []).map((r) => r.programa_id));
+        setLoading(false);
+      });
+  }, [usuario.id]);
+
+  const toggle = (programaId) => {
+    setSeleccionados((prev) =>
+      prev.includes(programaId) ? prev.filter((id) => id !== programaId) : [...prev, programaId]
+    );
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await supabase.from("usuario_proyectos").delete().eq("usuario_id", usuario.id);
+    if (seleccionados.length > 0) {
+      await supabase
+        .from("usuario_proyectos")
+        .insert(seleccionados.map((programa_id) => ({ usuario_id: usuario.id, programa_id })));
+    }
+    setSaving(false);
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-900">Proyectos Asociados</h3>
+            <p className="text-xs text-slate-500">{usuario.nombre}</p>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
+            ✕
+          </button>
+        </div>
+
+        {loading ? (
+          <p className="text-xs text-slate-400">Cargando…</p>
+        ) : (
+          <div className="max-h-80 space-y-2 overflow-y-auto">
+            {programas.map((p) => (
+              <label
+                key={p.id}
+                className="flex items-center gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={seleccionados.includes(p.id)}
+                  onChange={() => toggle(p.id)}
+                  className="h-4 w-4 accent-orange-500"
+                />
+                {p.nombre}
+              </label>
+            ))}
+            {programas.length === 0 && <p className="text-xs text-slate-400">No hay programas de mejora todavía.</p>}
+          </div>
+        )}
+
+        <div className="mt-6 flex justify-end gap-3">
+          <button onClick={onClose} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm text-slate-700">
+            Cancelar
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving || loading}
+            className="rounded-xl bg-orange-500 px-6 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
+          >
+            {saving ? "Guardando…" : "Guardar Proyectos"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
