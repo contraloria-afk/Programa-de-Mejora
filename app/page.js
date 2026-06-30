@@ -2393,7 +2393,7 @@ function UsuariosPanel({ usuarios, setUsuarios, clientes, programas }) {
           <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
             <tr>
               <th className="px-5 py-3">Nombre</th>
-              <th className="px-5 py-3">Email</th>
+              <th className="px-5 py-3">Usuario</th>
               <th className="px-5 py-3">Tipo</th>
               <th className="px-5 py-3">Rol Auditoría</th>
               <th className="px-5 py-3">Permisos</th>
@@ -2474,7 +2474,12 @@ function UsuariosPanel({ usuarios, setUsuarios, clientes, programas }) {
       </div>
 
       {modalNuevo && (
-        <NuevoUsuarioModal clientes={clientes} onClose={() => setModalNuevo(false)} onCreated={(u) => setUsuarios((prev) => [...prev, u])} />
+        <NuevoUsuarioModal
+          clientes={clientes}
+          programas={programas}
+          onClose={() => setModalNuevo(false)}
+          onCreated={(u) => setUsuarios((prev) => [...prev, u])}
+        />
       )}
 
       {modalPermisos && (
@@ -2494,48 +2499,75 @@ function UsuariosPanel({ usuarios, setUsuarios, clientes, programas }) {
   );
 }
 
-function NuevoUsuarioModal({ clientes, onClose, onCreated }) {
+function NuevoUsuarioModal({ clientes, programas, onClose, onCreated }) {
   const ROLES = ["Auditor Líder", "Consultor Capturista"];
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [rol, setRol] = useState(ROLES[0]);
   const [tipoUsuario, setTipoUsuario] = useState("Consultor");
   const [clienteId, setClienteId] = useState("");
+  const [permisos, setPermisos] = useState([]);
+  const [proyectosSeleccionados, setProyectosSeleccionados] = useState([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState(null);
 
+  const togglePermiso = (key) => {
+    setPermisos((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
+  };
+
+  const toggleProyecto = (id) => {
+    setProyectosSeleccionados((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
+  };
+
   const handleCreate = async () => {
     if (!nombre.trim()) {
-      setError("El nombre es obligatorio.");
+      setError("El nombre completo es obligatorio.");
+      return;
+    }
+    if (!email.trim()) {
+      setError("El usuario (correo) es obligatorio.");
       return;
     }
     setSaving(true);
     setError(null);
+
     const { data, error: err } = await supabase
       .from("usuarios")
       .insert([
         {
           nombre,
-          email: email || null,
+          email: email.trim(),
           rol,
           tipo_usuario: tipoUsuario,
           cliente_id: tipoUsuario === "Cliente" ? clienteId || null : null,
-          permisos: [],
+          permisos,
         },
       ])
       .select();
-    setSaving(false);
+
     if (err) {
+      setSaving(false);
       setError(err.message);
       return;
     }
-    onCreated(data[0]);
+
+    const nuevoUsuario = data[0];
+
+    if (proyectosSeleccionados.length > 0) {
+      const { error: errProy } = await supabase
+        .from("usuario_proyectos")
+        .insert(proyectosSeleccionados.map((programa_id) => ({ usuario_id: nuevoUsuario.id, programa_id })));
+      if (errProy) console.error(errProy);
+    }
+
+    setSaving(false);
+    onCreated(nuevoUsuario);
     onClose();
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 px-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
         <div className="mb-6 flex items-start justify-between">
           <h3 className="text-lg font-semibold text-slate-900">Nuevo Usuario</h3>
           <button onClick={onClose} className="text-slate-500 hover:text-slate-900">
@@ -2543,57 +2575,115 @@ function NuevoUsuarioModal({ clientes, onClose, onCreated }) {
           </button>
         </div>
 
-        <div className="space-y-3">
-          <input
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            placeholder="Nombre completo"
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
-          />
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="Email (debe coincidir con su login)"
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
-          />
-          <select
-            value={tipoUsuario}
-            onChange={(e) => setTipoUsuario(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
-          >
-            {TIPOS_USUARIO.map((t) => (
-              <option key={t} value={t}>
-                Tipo: {t}
-              </option>
-            ))}
-          </select>
-          <select
-            value={rol}
-            onChange={(e) => setRol(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                Rol auditoría: {r}
-              </option>
-            ))}
-          </select>
-          {tipoUsuario === "Cliente" && (
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Columna izquierda: datos + permisos */}
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">Nombre completo</label>
+              <input
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                placeholder="Ej: Ana López"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-500">Usuario (correo electrónico)</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ana.lopez@empresa.com"
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
+              />
+              <p className="mt-1 text-[10px] text-slate-400">
+                Debe coincidir con el correo registrado en Authentication para que su login funcione.
+              </p>
+            </div>
             <select
-              value={clienteId}
-              onChange={(e) => setClienteId(e.target.value)}
+              value={tipoUsuario}
+              onChange={(e) => setTipoUsuario(e.target.value)}
               className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
             >
-              <option value="">Vincular a cliente</option>
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.nombre}
+              {TIPOS_USUARIO.map((t) => (
+                <option key={t} value={t}>
+                  Tipo: {t}
                 </option>
               ))}
             </select>
-          )}
-          {error && <p className="rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</p>}
+            <select
+              value={rol}
+              onChange={(e) => setRol(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  Rol auditoría: {r}
+                </option>
+              ))}
+            </select>
+            {tipoUsuario === "Cliente" && (
+              <select
+                value={clienteId}
+                onChange={(e) => setClienteId(e.target.value)}
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+              >
+                <option value="">Vincular a cliente</option>
+                {clientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.nombre}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            <div>
+              <p className="mb-1.5 text-xs font-medium text-slate-500">Permisos</p>
+              <div className="max-h-48 space-y-1.5 overflow-y-auto rounded-xl border border-slate-200 p-2">
+                {PERMISOS_DISPONIBLES.map((p) => (
+                  <label
+                    key={p.key}
+                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={permisos.includes(p.key)}
+                      onChange={() => togglePermiso(p.key)}
+                      className="h-3.5 w-3.5 accent-orange-500"
+                    />
+                    {p.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Columna derecha: proyectos */}
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-slate-500">Proyectos asociados</p>
+            <div className="max-h-[26rem] space-y-1.5 overflow-y-auto rounded-xl border border-slate-200 p-2">
+              {programas.map((p) => (
+                <label
+                  key={p.id}
+                  className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-slate-700 hover:bg-slate-50"
+                >
+                  <input
+                    type="checkbox"
+                    checked={proyectosSeleccionados.includes(p.id)}
+                    onChange={() => toggleProyecto(p.id)}
+                    className="h-3.5 w-3.5 accent-orange-500"
+                  />
+                  {p.nombre}
+                </label>
+              ))}
+              {programas.length === 0 && (
+                <p className="px-2 py-4 text-center text-xs text-slate-400">No hay programas de mejora todavía.</p>
+              )}
+            </div>
+          </div>
         </div>
+
+        {error && <p className="mt-4 rounded-xl bg-rose-50 px-3 py-2 text-xs text-rose-600">{error}</p>}
 
         <div className="mt-6 flex justify-end gap-3">
           <button onClick={onClose} className="rounded-xl border border-slate-300 px-5 py-2.5 text-sm text-slate-700">
