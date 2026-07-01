@@ -2011,223 +2011,144 @@ function ConfiguracionPlaceholder({ mensaje }) {
 function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, setModulos, setCriterios }) {
   const [categoriaId, setCategoriaId] = useState("");
   const [moduloNombre, setModuloNombre] = useState("");
-  const [criterioNombre, setCriterioNombre] = useState("");
-  const [criterioCodigo, setCriterioCodigo] = useState("");
-  const [saving, setSaving] = useState(false);
-
   const [moduloExistenteId, setModuloExistenteId] = useState("");
   const [critTipoComponente, setCritTipoComponente] = useState("Transaccion");
-  const [critCodigo2, setCritCodigo2] = useState("");
-  const [critNombre2, setCritNombre2] = useState("");
-  const [critEvidencia2, setCritEvidencia2] = useState("");
-  const [critAfirmacion2, setCritAfirmacion2] = useState("");
-  const [saving2, setSaving2] = useState(false);
+  const [critCodigo, setCritCodigo] = useState("");
+  const [critNombre, setCritNombre] = useState("");
+  const [savingModulo, setSavingModulo] = useState(false);
+  const [savingCrit, setSavingCrit] = useState(false);
 
-  const handleCreateModulo = async (e) => {
+  const handleCrearModulo = async (e) => {
     e.preventDefault();
     if (!moduloNombre.trim() || !categoriaId) return;
-    setSaving(true);
-
-    const { data: modData, error: modErr } = await supabase
+    setSavingModulo(true);
+    const { data, error } = await supabase
       .from("modulos")
       .insert([{ nombre: moduloNombre, categoria_id: categoriaId }])
       .select();
-
-    if (modErr) {
-      console.error(modErr);
-      setSaving(false);
-      return;
-    }
-
-    const nuevoModulo = modData[0];
-    setModulos((prev) => [...prev, nuevoModulo]);
-
-    if (criterioNombre.trim()) {
-      const { data: critData, error: critErr } = await supabase
-        .from("criterios")
-        .insert([{ nombre: criterioNombre, codigo: criterioCodigo || null, modulo_id: nuevoModulo.id }])
-        .select();
-      if (!critErr) setCriterios((prev) => [...prev, critData[0]]);
-    }
-
-    setSaving(false);
+    setSavingModulo(false);
+    if (error) return console.error(error);
+    setModulos((prev) => [...prev, data[0]]);
     setModuloNombre("");
-    setCriterioNombre("");
-    setCriterioCodigo("");
   };
 
-  const handleAddCriterioExistente = async (e) => {
+  const handleAgregarItem = async (e) => {
     e.preventDefault();
-    if (!moduloExistenteId || !critNombre2.trim()) return;
-    setSaving2(true);
-
+    if (!moduloExistenteId || !critNombre.trim()) return;
+    setSavingCrit(true);
     const { data, error } = await supabase
       .from("criterios")
-      .insert([
-        {
-          nombre: critNombre2,
-          codigo: critCodigo2 || null,
-          modulo_id: moduloExistenteId,
-          tipo_componente: critTipoComponente,
-          evidencia_sugerida: critEvidencia2 || null,
-          afirmacion_guia: critAfirmacion2 || null,
-        },
-      ])
+      .insert([{
+        nombre: critNombre,
+        codigo: critCodigo || null,
+        modulo_id: moduloExistenteId,
+        tipo_componente: critTipoComponente,
+      }])
       .select();
-
-    setSaving2(false);
-    if (error) {
-      console.error(error);
-      return;
-    }
-
+    setSavingCrit(false);
+    if (error) return console.error(error);
     setCriterios((prev) => [...prev, data[0]]);
-    setCritCodigo2("");
-    setCritNombre2("");
-    setCritEvidencia2("");
-    setCritAfirmacion2("");
+    setCritNombre("");
+    setCritCodigo("");
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
-      <div className="space-y-6">
-        <form onSubmit={handleCreateModulo} className="space-y-4 rounded-3xl border border-slate-200 bg-white p-6">
-          <h3 className="text-sm font-semibold text-slate-900">Nuevo Módulo + Primer Criterio</h3>
+    <div className="space-y-6">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <form onSubmit={handleCrearModulo} className="space-y-3 rounded-3xl border border-slate-200 bg-white p-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">1. Nuevo módulo</p>
           <select
             value={categoriaId}
             onChange={(e) => setCategoriaId(e.target.value)}
             className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
           >
-            <option value="">Categoría (Área de capacidad)</option>
+            <option value="">Selecciona una categoría</option>
             {categorias.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.nombre}
-              </option>
+              <option key={c.id} value={c.id}>{c.nombre}</option>
             ))}
           </select>
           <input
             value={moduloNombre}
             onChange={(e) => setModuloNombre(e.target.value)}
             placeholder="Nombre del módulo ERP"
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
           />
-          <div className="grid grid-cols-[1fr_2fr] gap-2">
-            <input
-              value={criterioCodigo}
-              onChange={(e) => setCriterioCodigo(e.target.value)}
-              placeholder="Código"
-              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-            />
-            <input
-              value={criterioNombre}
-              onChange={(e) => setCriterioNombre(e.target.value)}
-              placeholder="Primer criterio (práctica CMMI)"
-              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-            />
-          </div>
           <button
             type="submit"
-            disabled={saving}
+            disabled={savingModulo}
             className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
           >
-            {saving ? "Guardando…" : "Crear Módulo Nuevo"}
+            {savingModulo ? "Guardando…" : "Crear módulo"}
           </button>
         </form>
 
-        <form onSubmit={handleAddCriterioExistente} className="space-y-3 rounded-3xl border border-orange-200 bg-orange-50/40 p-6">
-          <h3 className="text-sm font-semibold text-slate-900">Agregar Criterio a Módulo Existente</h3>
+        <form onSubmit={handleAgregarItem} className="space-y-3 rounded-3xl border border-slate-200 bg-white p-5">
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">2. Nuevo ítem evaluable</p>
           <select
             value={moduloExistenteId}
             onChange={(e) => setModuloExistenteId(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
           >
-            <option value="">Selecciona un módulo</option>
+            <option value="">Módulo destino</option>
             {categorias.map((cat) => (
               <optgroup key={cat.id} label={cat.nombre}>
-                {modulos
-                  .filter((m) => m.categoria_id === cat.id)
-                  .map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nombre}
-                    </option>
-                  ))}
+                {modulos.filter((m) => m.categoria_id === cat.id).map((m) => (
+                  <option key={m.id} value={m.id}>{m.nombre}</option>
+                ))}
               </optgroup>
             ))}
           </select>
           <select
             value={critTipoComponente}
             onChange={(e) => setCritTipoComponente(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
+            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
           >
             {TIPOS_COMPONENTE.map((t) => (
-              <option key={t.value} value={t.value}>
-                {t.label}
-              </option>
+              <option key={t.value} value={t.value}>{t.label}</option>
             ))}
           </select>
           <div className="grid grid-cols-[1fr_2fr] gap-2">
             <input
-              value={critCodigo2}
-              onChange={(e) => setCritCodigo2(e.target.value)}
+              value={critCodigo}
+              onChange={(e) => setCritCodigo(e.target.value)}
               placeholder="Código"
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
             />
             <input
-              value={critNombre2}
-              onChange={(e) => setCritNombre2(e.target.value)}
-              placeholder="Nombre del criterio"
-              className="rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
+              value={critNombre}
+              onChange={(e) => setCritNombre(e.target.value)}
+              placeholder="Nombre del ítem"
+              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
             />
           </div>
-          <textarea
-            value={critEvidencia2}
-            onChange={(e) => setCritEvidencia2(e.target.value)}
-            placeholder="Evidencia sugerida (qué debería buscar el auditor)"
-            rows={2}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-          />
-          <textarea
-            value={critAfirmacion2}
-            onChange={(e) => setCritAfirmacion2(e.target.value)}
-            placeholder="Pregunta guía para entrevista"
-            rows={2}
-            className="w-full rounded-xl border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-500 focus:border-orange-500 focus:outline-none"
-          />
           <button
             type="submit"
-            disabled={saving2}
+            disabled={savingCrit}
             className="w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
           >
-            {saving2 ? "Guardando…" : "+ Agregar Criterio"}
+            {savingCrit ? "Guardando…" : "+ Agregar ítem"}
           </button>
         </form>
       </div>
 
-      <div className="max-h-[40rem] overflow-y-auto rounded-3xl border border-slate-200 bg-slate-50 p-4">
-        <h3 className="mb-3 text-sm font-semibold text-slate-900">Árbol del Modelo de Referencia</h3>
-        {categorias.map((cat) => (
-          <div key={cat.id} className="mb-3">
-            <p className="text-xs font-bold uppercase text-orange-400">{cat.nombre}</p>
-            {modulos
-              .filter((m) => m.categoria_id === cat.id)
-              .map((mod) => (
-                <div key={mod.id} className="ml-3 mt-1.5">
-                  <p className="text-xs font-semibold text-slate-800">
-                    ↳ {mod.nombre}{" "}
-                    <span className="font-normal text-slate-400">
-                      ({criterios.filter((c) => c.modulo_id === mod.id).length} criterios)
-                    </span>
-                  </p>
+      <div className="rounded-3xl border border-slate-200 bg-white p-5">
+        <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Árbol del catálogo</p>
+        <div className="max-h-72 overflow-y-auto space-y-3">
+          {categorias.map((cat) => (
+            <div key={cat.id}>
+              <p className="text-xs font-bold uppercase tracking-wider text-orange-500">{cat.nombre}</p>
+              {modulos.filter((m) => m.categoria_id === cat.id).map((mod) => (
+                <div key={mod.id} className="ml-3 mt-1">
+                  <p className="text-xs font-semibold text-slate-800">↳ {mod.nombre}</p>
                   {TIPOS_COMPONENTE.map((tipo) => {
                     const items = criterios.filter((c) => c.modulo_id === mod.id && c.tipo_componente === tipo.value);
-                    if (items.length === 0) return null;
+                    if (!items.length) return null;
                     return (
-                      <div key={tipo.value} className="ml-5 mt-1">
+                      <div key={tipo.value} className="ml-4 mt-1">
                         <p className="text-[10px] font-bold uppercase text-slate-400">{tipo.label}</p>
                         {items.map((c) => (
-                          <p key={c.id} className="ml-2 text-[11px] text-slate-500">
-                            • {c.codigo ? `${c.codigo} — ` : ""}
-                            {c.nombre}
+                          <p key={c.id} className="ml-3 text-[11px] text-slate-500">
+                            • {c.codigo ? `${c.codigo} — ` : ""}{c.nombre}
                           </p>
                         ))}
                       </div>
@@ -2235,6 +2156,115 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
                   })}
                 </div>
               ))}
+            </div>
+          ))}
+          {categorias.length === 0 && (
+            <p className="text-xs text-slate-400">Sin datos. Crea una categoría primero en Supabase.</p>
+          )}
+        </div>
+      </div>
+
+      <EscalasPorNivelReferencia />
+    </div>
+  );
+}
+
+function EscalasPorNivelReferencia() {
+  const niveles = [
+    {
+      nivel: "Nivel 4",
+      subtitulo: "Revisión de evidencias",
+      tipos: ["PII", "Afirmation"],
+      escalas: [
+        { code: "Not characterized", desc: "No se ha revisado evidencia" },
+        { code: "Strength", desc: "La evidencia es adecuada para la práctica" },
+        { code: "Weakness", desc: "La evidencia muestra una mala implementación" },
+        { code: "Strength / Weakness", desc: "No es clara — requiere revisión en equipo" },
+      ],
+      bg: "bg-rose-50 border-rose-200",
+      badge: "bg-rose-100 text-rose-700",
+      dot: "bg-rose-400",
+    },
+    {
+      nivel: "Nivel 3",
+      subtitulo: "Revisión de instancias",
+      tipos: ["Transacciones", "Consultas", "Reportes", "Catálogos", "Administración"],
+      escalas: [
+        { code: "Not yet reviewed", desc: "No se ha revisado evidencia" },
+        { code: "Strong evidence", desc: "La evidencia en conjunto es adecuada" },
+        { code: "No evidence", desc: "No hay evidencia disponible" },
+        { code: "Conflicting evidence", desc: "No es consistente con otra evidencia" },
+        { code: "Anomalous evidence", desc: "Muestra una mala implementación" },
+        { code: "Insufficient evidence", desc: "Se necesita agregar más evidencias" },
+      ],
+      bg: "bg-amber-50 border-amber-200",
+      badge: "bg-amber-100 text-amber-700",
+      dot: "bg-amber-400",
+    },
+    {
+      nivel: "Nivel 2",
+      subtitulo: "Prácticas — roll-up a nivel Módulo",
+      tipos: [],
+      escalas: [
+        { code: "FI", desc: "Fully Implemented — práctica constante, completa y sistemática" },
+        { code: "LI", desc: "Largely Implemented — objetivos logrados con pequeñas brechas" },
+        { code: "PI", desc: "Partially Implemented — avances visibles, debilidades notorias" },
+        { code: "NI", desc: "Not Implemented — sin intenciones ni registros reales" },
+        { code: "NA", desc: "Not Applicable — el módulo no aplica para el caso evaluado" },
+      ],
+      bg: "bg-teal-50 border-teal-200",
+      badge: "bg-teal-100 text-teal-700",
+      dot: "bg-teal-400",
+    },
+    {
+      nivel: "Nivel 1",
+      subtitulo: "Calificación del proyecto",
+      tipos: [],
+      escalas: [
+        { code: "Dashboard agregado", desc: "Vista general del programa de mejora con roll-up de todos los módulos evaluados" },
+      ],
+      bg: "bg-purple-50 border-purple-200",
+      badge: "bg-purple-100 text-purple-700",
+      dot: "bg-purple-400",
+    },
+  ];
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5">
+      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Escalas de calificación por nivel</p>
+      <p className="mb-5 mt-1 text-xs text-slate-400">
+        Solo lectura — define el modelo. La calificación real ocurre en Programas de Mejora. El nivel 4 acumula hacia arriba hasta el nivel 1.
+      </p>
+      <div className="space-y-2">
+        {niveles.map((n, idx) => (
+          <div key={n.nivel}>
+            <div className={`rounded-2xl border ${n.bg} p-4`}>
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${n.badge}`}>{n.nivel}</span>
+                <span className="text-xs font-medium text-slate-700">{n.subtitulo}</span>
+                {n.tipos.length > 0 && (
+                  <span className="text-xs text-slate-400">({n.tipos.join(", ")})</span>
+                )}
+              </div>
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {n.escalas.map((e) => (
+                  <div key={e.code} className="flex items-start gap-2 rounded-xl bg-white/70 px-3 py-2">
+                    <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${n.dot}`} />
+                    <div>
+                      <p className="text-[11px] font-semibold text-slate-800">{e.code}</p>
+                      <p className="text-[10px] text-slate-500">{e.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {idx < niveles.length - 1 && (
+              <div className="flex justify-center py-1.5 text-slate-300">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M12 5v14M5 12l7 7 7-7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            )}
           </div>
         ))}
       </div>
