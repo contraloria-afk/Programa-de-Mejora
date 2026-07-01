@@ -2009,28 +2009,11 @@ function ConfiguracionPlaceholder({ mensaje }) {
 }
 
 function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, setModulos, setCriterios }) {
-  const [categoriaId, setCategoriaId] = useState("");
-  const [moduloNombre, setModuloNombre] = useState("");
   const [moduloExistenteId, setModuloExistenteId] = useState("");
   const [critTipoComponente, setCritTipoComponente] = useState("Transaccion");
   const [critCodigo, setCritCodigo] = useState("");
   const [critNombre, setCritNombre] = useState("");
-  const [savingModulo, setSavingModulo] = useState(false);
   const [savingCrit, setSavingCrit] = useState(false);
-
-  const handleCrearModulo = async (e) => {
-    e.preventDefault();
-    if (!moduloNombre.trim() || !categoriaId) return;
-    setSavingModulo(true);
-    const { data, error } = await supabase
-      .from("modulos")
-      .insert([{ nombre: moduloNombre, categoria_id: categoriaId }])
-      .select();
-    setSavingModulo(false);
-    if (error) return console.error(error);
-    setModulos((prev) => [...prev, data[0]]);
-    setModuloNombre("");
-  };
 
   const handleAgregarItem = async (e) => {
     e.preventDefault();
@@ -2054,36 +2037,14 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-5 lg:grid-cols-2">
-        <form onSubmit={handleCrearModulo} className="space-y-3 rounded-3xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">1. Nuevo módulo</p>
-          <select
-            value={categoriaId}
-            onChange={(e) => setCategoriaId(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
-          >
-            <option value="">Selecciona una categoría</option>
-            {categorias.map((c) => (
-              <option key={c.id} value={c.id}>{c.nombre}</option>
-            ))}
-          </select>
-          <input
-            value={moduloNombre}
-            onChange={(e) => setModuloNombre(e.target.value)}
-            placeholder="Nombre del módulo ERP"
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
-          />
-          <button
-            type="submit"
-            disabled={savingModulo}
-            className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
-          >
-            {savingModulo ? "Guardando…" : "Crear módulo"}
-          </button>
-        </form>
-
+      <div className="grid gap-5 lg:grid-cols-[1fr_1.4fr]">
+        {/* Formulario único: nuevo ítem evaluable */}
         <form onSubmit={handleAgregarItem} className="space-y-3 rounded-3xl border border-slate-200 bg-white p-5">
-          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">2. Nuevo ítem evaluable</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nuevo ítem evaluable</p>
+          <p className="text-[11px] text-slate-400">
+            Selecciona el módulo, el tipo de componente según el estándar, y define el ítem específico que se auditará.
+          </p>
+
           <select
             value={moduloExistenteId}
             onChange={(e) => setModuloExistenteId(e.target.value)}
@@ -2098,15 +2059,27 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
               </optgroup>
             ))}
           </select>
-          <select
-            value={critTipoComponente}
-            onChange={(e) => setCritTipoComponente(e.target.value)}
-            className="w-full rounded-xl border border-slate-300 bg-slate-50 px-4 py-2.5 text-sm text-slate-900 focus:border-orange-500 focus:outline-none"
-          >
-            {TIPOS_COMPONENTE.map((t) => (
-              <option key={t.value} value={t.value}>{t.label}</option>
-            ))}
-          </select>
+
+          <div>
+            <p className="mb-1.5 text-[11px] font-medium text-slate-500">Tipo de componente (Nivel 3 del estándar)</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {TIPOS_COMPONENTE.map((t) => (
+                <button
+                  key={t.value}
+                  type="button"
+                  onClick={() => setCritTipoComponente(t.value)}
+                  className={`rounded-xl px-2 py-2 text-xs font-semibold transition ${
+                    critTipoComponente === t.value
+                      ? "bg-orange-500 text-slate-950"
+                      : "border border-slate-300 text-slate-600 hover:border-orange-400"
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-[1fr_2fr] gap-2">
             <input
               value={critCodigo}
@@ -2117,50 +2090,52 @@ function ModeloReferenciaPanel({ categorias, modulos, criterios, setCategorias, 
             <input
               value={critNombre}
               onChange={(e) => setCritNombre(e.target.value)}
-              placeholder="Nombre del ítem"
+              placeholder="Nombre del ítem evaluable"
               className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:border-orange-500 focus:outline-none"
             />
           </div>
+
           <button
             type="submit"
             disabled={savingCrit}
-            className="w-full rounded-xl bg-slate-900 py-2.5 text-sm font-semibold text-white hover:bg-slate-700 disabled:opacity-50"
+            className="w-full rounded-xl bg-orange-500 py-2.5 text-sm font-semibold text-slate-950 hover:bg-orange-400 disabled:opacity-50"
           >
-            {savingCrit ? "Guardando…" : "+ Agregar ítem"}
+            {savingCrit ? "Guardando…" : "+ Agregar ítem al catálogo"}
           </button>
         </form>
-      </div>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-5">
-        <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-500">Árbol del catálogo</p>
-        <div className="max-h-72 overflow-y-auto space-y-3">
-          {categorias.map((cat) => (
-            <div key={cat.id}>
-              <p className="text-xs font-bold uppercase tracking-wider text-orange-500">{cat.nombre}</p>
-              {modulos.filter((m) => m.categoria_id === cat.id).map((mod) => (
-                <div key={mod.id} className="ml-3 mt-1">
-                  <p className="text-xs font-semibold text-slate-800">↳ {mod.nombre}</p>
-                  {TIPOS_COMPONENTE.map((tipo) => {
-                    const items = criterios.filter((c) => c.modulo_id === mod.id && c.tipo_componente === tipo.value);
-                    if (!items.length) return null;
-                    return (
-                      <div key={tipo.value} className="ml-4 mt-1">
-                        <p className="text-[10px] font-bold uppercase text-slate-400">{tipo.label}</p>
-                        {items.map((c) => (
-                          <p key={c.id} className="ml-3 text-[11px] text-slate-500">
-                            • {c.codigo ? `${c.codigo} — ` : ""}{c.nombre}
-                          </p>
-                        ))}
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          ))}
-          {categorias.length === 0 && (
-            <p className="text-xs text-slate-400">Sin datos. Crea una categoría primero en Supabase.</p>
-          )}
+        {/* Árbol del catálogo */}
+        <div className="rounded-3xl border border-slate-200 bg-white p-5">
+          <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-slate-500">Árbol del catálogo</p>
+          <div className="max-h-96 overflow-y-auto space-y-3 pr-1">
+            {categorias.map((cat) => (
+              <div key={cat.id}>
+                <p className="text-xs font-bold uppercase tracking-wider text-orange-500">{cat.nombre}</p>
+                {modulos.filter((m) => m.categoria_id === cat.id).map((mod) => (
+                  <div key={mod.id} className="ml-3 mt-1.5">
+                    <p className="text-xs font-semibold text-slate-800">↳ {mod.nombre}</p>
+                    {TIPOS_COMPONENTE.map((tipo) => {
+                      const items = criterios.filter((c) => c.modulo_id === mod.id && c.tipo_componente === tipo.value);
+                      if (!items.length) return null;
+                      return (
+                        <div key={tipo.value} className="ml-4 mt-1">
+                          <p className="text-[10px] font-bold uppercase text-slate-400">{tipo.label}</p>
+                          {items.map((c) => (
+                            <p key={c.id} className="ml-3 text-[11px] text-slate-500">
+                              • {c.codigo ? `${c.codigo} — ` : ""}{c.nombre}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ))}
+            {categorias.length === 0 && (
+              <p className="text-xs text-slate-400">Sin categorías cargadas.</p>
+            )}
+          </div>
         </div>
       </div>
 
